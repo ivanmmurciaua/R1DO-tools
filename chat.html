@@ -336,6 +336,82 @@
                 color: var(--muted);
             }
 
+            /* Toggle Switch */
+            .toggle-group {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 14px;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                margin-top: 12px;
+                background: var(--bg);
+            }
+
+            .toggle-label {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .toggle-label span {
+                font-size: 0.75rem;
+                color: var(--text);
+            }
+
+            .toggle-label small {
+                font-size: 0.65rem;
+                color: var(--muted);
+            }
+
+            .toggle-switch {
+                position: relative;
+                width: 44px;
+                height: 24px;
+                flex-shrink: 0;
+            }
+
+            .toggle-switch input {
+                opacity: 0;
+                width: 0;
+                height: 0;
+            }
+
+            .toggle-slider {
+                position: absolute;
+                cursor: pointer;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: var(--surface-2);
+                border: 1px solid var(--border);
+                border-radius: 24px;
+                transition: 0.2s;
+            }
+
+            .toggle-slider::before {
+                position: absolute;
+                content: "";
+                height: 18px;
+                width: 18px;
+                left: 2px;
+                bottom: 2px;
+                background: var(--muted);
+                border-radius: 50%;
+                transition: 0.2s;
+            }
+
+            .toggle-switch input:checked + .toggle-slider {
+                background: var(--accent);
+                border-color: var(--accent);
+            }
+
+            .toggle-switch input:checked + .toggle-slider::before {
+                background: var(--bg);
+                transform: translateX(20px);
+            }
+
             .setup-buttons {
                 display: flex;
                 gap: 10px;
@@ -737,10 +813,29 @@
                         placeholder="130 hex characters..."
                         maxlength="130"
                     />
-                    <small>Get this from your contact</small>
                 </div>
 
-                <div class="setup-buttons">
+                <div class="form-group">
+                    <label>Privacy Options</label>
+                    <div class="toggle-group">
+                        <div class="toggle-label">
+                            <span>Ephemeral Messages</span>
+                            <small
+                                >Messages won't be stored on the network</small
+                            >
+                        </div>
+                        <label class="toggle-switch">
+                            <input
+                                type="checkbox"
+                                id="ephemeral-toggle"
+                                checked
+                            />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="setup-buttons" style="margin-top: 23px">
                     <button class="btn" id="start-chat-btn">
                         Start Encrypted Chat
                     </button>
@@ -1196,7 +1291,14 @@
                     connected = true;
                     reconnecting = false;
 
-                    wakuEncoder = createEncoder({ contentTopic });
+                    const ephemeralEnabled =
+                        document.getElementById("ephemeral-toggle")?.checked ??
+                        true;
+                    wakuEncoder = createEncoder({
+                        contentTopic: contentTopic,
+                        ephemeral: ephemeralEnabled,
+                    });
+                    console.log(wakuEncoder);
                     const decoder = createDecoder(contentTopic);
 
                     const { error, subscription } =
