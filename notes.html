@@ -1080,7 +1080,7 @@
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-header">
                     <div class="header-top">
-                        <h1 class="app-title">R1DO Notes v2</h1>
+                        <h1 class="app-title">R1DO Notes v3</h1>
                         <button
                             class="contacts-icon"
                             id="contactsIconBtn"
@@ -1880,11 +1880,9 @@
         <button id="importBtn" style="display: none"></button>
 
         <script type="module">
-            import { p256 } from "./js/noble-curves-p256.js";
-            import { sha256 } from "./js/noble-hashes-sha256.js";
-            import { bytesToHex } from "./js/noble-hashes-utils.js";
             import QRCode from "./js/qrcode.js";
             import { marked } from "./js/marked.js";
+            import * as R1DO from "./js/r1do-auth.js";
 
             marked.setOptions({
                 breaks: true,
@@ -1893,23 +1891,17 @@
                 mangle: false,
             });
 
-            // ==================== CONSTANTS ====================
-            const DERIVATION_MESSAGE =
-                "R1DO, derive my super keypair from this deterministic signature to encrypt notes";
-            const CURVE_ORDER_P256 = BigInt(
-                "0xFFFFFFFF00000000FFFFFFFFFFFFFFFFBCE6FAADA7179E84F3B9CAC2FC632551",
-            );
-            const DB_NAME = "R1DONotesDB";
-            const DB_VERSION = 1;
-            const STORE_NAME = "credentials";
-
             // ==================== GLOBAL STATE ====================
-            let db = null;
+            // Auth, credential store (R1DOToolsDB) and key derivation
+            // live in js/r1do-auth.js — shared across the R1DO suite.
             let currentAESKey = null;
+            let currentContactsKey = null;
             let currentUsername = null;
             let currentNoteId = null;
             let currentPrivateKey = null;
             let currentPublicKey = null;
+            let currentLegacyPrivateKey = null; // decrypts pre-v2 shared notes
+            let contactsCache = [];
             let notes = [];
 
             // ==================== DOM ELEMENTS ====================
@@ -2482,88 +2474,12 @@
             setMobileDefaultView();
 
             // ==================== INDEXED DB ====================
-            function initDB() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open(DB_NAME, DB_VERSION);
-                    request.onerror = () => reject(request.error);
-                    request.onsuccess = () => {
-                        db = request.result;
-                        resolve(db);
-                    };
-                    request.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        if (!db.objectStoreNames.contains(STORE_NAME)) {
-                            const objectStore = db.createObjectStore(
-                                STORE_NAME,
-                                { keyPath: "username" },
-                            );
-                            objectStore.createIndex(
-                                "credentialId",
-                                "credentialId",
-                                { unique: false },
-                            );
-                            objectStore.createIndex("createdAt", "createdAt", {
-                                unique: false,
-                            });
-                        }
-                    };
-                });
-            }
-
-            async function saveCredential(
-                username,
-                credentialId,
-                credentialIdRaw,
-                prfSupported,
-            ) {
-                const transaction = db.transaction([STORE_NAME], "readwrite");
-                const store = transaction.objectStore(STORE_NAME);
-                const data = {
-                    username: username,
-                    credentialId: credentialId,
-                    credentialIdRaw: Array.from(credentialIdRaw),
-                    prfSupported: prfSupported,
-                    createdAt: new Date().toISOString(),
-                };
-                return new Promise((resolve, reject) => {
-                    const request = store.put(data);
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async function getCredential(username) {
-                const transaction = db.transaction([STORE_NAME], "readonly");
-                const store = transaction.objectStore(STORE_NAME);
-                return new Promise((resolve, reject) => {
-                    const request = store.get(username);
-                    request.onsuccess = () => resolve(request.result);
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async function listCredentials() {
-                const transaction = db.transaction([STORE_NAME], "readonly");
-                const store = transaction.objectStore(STORE_NAME);
-                return new Promise((resolve, reject) => {
-                    const request = store.getAll();
-                    request.onsuccess = () => resolve(request.result);
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async function importCredentials(credentials) {
-                const transaction = db.transaction([STORE_NAME], "readwrite");
-                const store = transaction.objectStore(STORE_NAME);
-
-                for (const cred of credentials) {
-                    await new Promise((resolve, reject) => {
-                        const request = store.put(cred);
-                        request.onsuccess = () => resolve();
-                        request.onerror = () => reject(request.error);
-                    });
-                }
-            }
+            // Credential store: R1DOToolsDB via the shared module
+            // (auto-migrates records from the legacy R1DONotesDB).
+            const initDB = R1DO.initCredDB;
+            const getCredential = R1DO.getCredential;
+            const listCredentials = R1DO.listCredentials;
+            const importCredentials = R1DO.importCredentials;
 
             // ==================== LOCAL STORAGE NOTES ====================
             function saveNote(encryptedData) {
@@ -2602,30 +2518,36 @@
             }
 
             // ==================== CONTACTS MANAGEMENT ====================
+            // Contacts: in-memory cache, encrypted at rest (shared with chat).
+            function getContacts() {
+                return contactsCache;
+            }
+
+            function persistContacts() {
+                if (!currentContactsKey) return;
+                R1DO.storeContacts(currentContactsKey, contactsCache).catch(
+                    (e) => console.error("Failed to persist contacts:", e),
+                );
+            }
+
             function saveContact(name, publicKey) {
-                const contacts = getContacts();
-                contacts.push({
+                contactsCache.push({
                     id: crypto.randomUUID(),
                     name: name,
                     publicKey: publicKey,
                     addedAt: new Date().toISOString(),
                 });
-                localStorage.setItem("contacts", JSON.stringify(contacts));
-            }
-
-            function getContacts() {
-                const contactsStr = localStorage.getItem("contacts");
-                return contactsStr ? JSON.parse(contactsStr) : [];
+                persistContacts();
             }
 
             function deleteContact(contactId) {
-                const contacts = getContacts();
-                const filtered = contacts.filter((c) => c.id !== contactId);
-                localStorage.setItem("contacts", JSON.stringify(filtered));
+                contactsCache = contactsCache.filter((c) => c.id !== contactId);
+                persistContacts();
             }
 
             function clearAllContacts() {
-                localStorage.removeItem("contacts");
+                contactsCache = [];
+                R1DO.clearContacts();
             }
 
             async function renderContactsList() {
@@ -2772,128 +2694,31 @@
                 }
             }
 
-            // ==================== ECDH + AES ENCRYPTION ====================
+            // ==================== ECIES (v2: signed envelopes) ====================
+            // Shared-note envelopes are encrypted AND signed by the sender's
+            // identity key (module ECIES v2). Legacy unsigned envelopes from
+            // pre-v2 versions remain decryptable.
 
-            // Generate ephemeral keypair
-            async function generateEphemeralKeypair() {
-                const privateKey = p256.utils.randomPrivateKey();
-                const publicKey = p256.getPublicKey(privateKey, false);
-                return { privateKey, publicKey };
-            }
-
-            // Derive shared secret using ECDH
-            function deriveSharedSecret(privateKey, publicKey) {
-                // Convert public key to Point for ECDH
-                const sharedPoint = p256.getSharedSecret(privateKey, publicKey);
-                return sharedPoint.slice(1); // Remove 0x04 prefix, keep x-coordinate (32 bytes)
-            }
-
-            // Derive encryption key from shared secret using HKDF
-            function deriveEncryptionKey(sharedSecret, salt, info) {
-                // Simple HKDF: HMAC(salt, secret) -> HMAC(result, info || 0x01)
-                const prk = sha256(new Uint8Array([...salt, ...sharedSecret]));
-                const okm = sha256(new Uint8Array([...prk, ...info, 0x01]));
-                return okm;
-            }
-
-            // Encrypt for recipient
             async function encryptForRecipient(message, recipientPublicKeyHex) {
-                try {
-                    const recipientPublicKey = new Uint8Array(
-                        recipientPublicKeyHex
-                            .match(/.{1,2}/g)
-                            .map((byte) => parseInt(byte, 16)),
-                    );
-
-                    const ephemeral = await generateEphemeralKeypair();
-                    const sharedSecret = deriveSharedSecret(
-                        ephemeral.privateKey,
-                        recipientPublicKey,
-                    );
-
-                    // Derive encryption key using HKDF
-                    const salt = new Uint8Array(32); // Zero salt for simplicity
-                    const info = new TextEncoder().encode(
-                        "ecies-encryption-v1",
-                    );
-                    const encryptionKey = deriveEncryptionKey(
-                        sharedSecret,
-                        salt,
-                        info,
-                    );
-
-                    const aesKey = await crypto.subtle.importKey(
-                        "raw",
-                        encryptionKey,
-                        { name: "AES-GCM" },
-                        false,
-                        ["encrypt"],
-                    );
-
-                    // AES-GCM encryption
-                    const iv = crypto.getRandomValues(new Uint8Array(12));
-                    const encodedMessage = new TextEncoder().encode(message);
-                    const ciphertext = await crypto.subtle.encrypt(
-                        { name: "AES-GCM", iv: iv },
-                        aesKey,
-                        encodedMessage,
-                    );
-
-                    // Return encrypted message
-                    return {
-                        version: "1.0",
-                        ephemeralPublic: Array.from(ephemeral.publicKey),
-                        iv: Array.from(iv),
-                        ciphertext: Array.from(new Uint8Array(ciphertext)),
-                        timestamp: new Date().toISOString(),
-                    };
-                } catch (error) {
-                    console.error("Encryption error:", error);
-                    throw error;
-                }
+                return R1DO.eciesEncrypt({
+                    message,
+                    recipientPublicKeyHex,
+                    senderPrivateKey: currentPrivateKey,
+                    senderPublicKeyHex: Array.from(currentPublicKey)
+                        .map((b) => b.toString(16).padStart(2, "0"))
+                        .join(""),
+                });
             }
 
-            // Decrypt from sender
+            // Returns { text, senderPublicKeyHex, verified } — verified is
+            // null for legacy (unsigned) envelopes.
             async function decryptFromSender(encryptedPackage, myPrivateKey) {
                 try {
-                    const ephemeralPublic = new Uint8Array(
-                        encryptedPackage.ephemeralPublic,
-                    );
-                    const sharedSecret = deriveSharedSecret(
+                    return await R1DO.decryptAnyEnvelope({
+                        envelope: encryptedPackage,
                         myPrivateKey,
-                        ephemeralPublic,
-                    );
-
-                    const salt = new Uint8Array(32);
-                    const info = new TextEncoder().encode(
-                        "ecies-encryption-v1",
-                    );
-                    const encryptionKey = deriveEncryptionKey(
-                        sharedSecret,
-                        salt,
-                        info,
-                    );
-
-                    const aesKey = await crypto.subtle.importKey(
-                        "raw",
-                        encryptionKey,
-                        { name: "AES-GCM" },
-                        false,
-                        ["decrypt"],
-                    );
-
-                    const iv = new Uint8Array(encryptedPackage.iv);
-                    const ciphertext = new Uint8Array(
-                        encryptedPackage.ciphertext,
-                    );
-
-                    const decrypted = await crypto.subtle.decrypt(
-                        { name: "AES-GCM", iv: iv },
-                        aesKey,
-                        ciphertext,
-                    );
-
-                    return new TextDecoder().decode(decrypted);
+                        legacyPrivateKey: currentLegacyPrivateKey,
+                    });
                 } catch (error) {
                     console.error("Decryption error:", error);
                     throw error;
@@ -2930,6 +2755,50 @@
                     ciphertext,
                 );
                 return new TextDecoder().decode(decrypted);
+            }
+
+            // One-time migration: re-encrypt notes stored under the old
+            // per-app derivation with the unified key. Preserves timestamps.
+            async function migrateLegacyNotes(legacyPrf) {
+                const allNotes = getNotes();
+                if (allNotes.length === 0) return;
+
+                let legacyKey = null;
+                let migrated = 0;
+
+                for (const note of allNotes) {
+                    try {
+                        await decryptMessage(note.encryptedData);
+                        continue; // already on the unified key
+                    } catch {
+                        /* fall through to legacy */
+                    }
+                    try {
+                        if (!legacyKey) {
+                            const legacyId =
+                                R1DO.legacyIdentityFromPrf(legacyPrf);
+                            legacyKey = await R1DO.legacyNotesAesKey(
+                                legacyId.privateKey,
+                            );
+                        }
+                        const plaintext = await R1DO.aesDecrypt(
+                            legacyKey,
+                            note.encryptedData,
+                        );
+                        note.encryptedData = await encryptMessage(plaintext);
+                        migrated++;
+                    } catch (e) {
+                        console.warn("Could not migrate note", note.id, e);
+                    }
+                }
+
+                if (migrated > 0) {
+                    localStorage.setItem("notes", JSON.stringify(allNotes));
+                    showToast(
+                        `Migrated ${migrated} note(s) to the unified key`,
+                        "success",
+                    );
+                }
             }
 
             // ==================== UI HELPERS ====================
@@ -3127,155 +2996,43 @@
                     const existingCred = await getCredential(username);
 
                     if (!existingCred) {
-                        const challenge = crypto.getRandomValues(
-                            new Uint8Array(32),
-                        );
-                        const publicKeyOptions = {
-                            challenge: challenge,
-                            rp: {
-                                name: "WebAuthn Key Derivation",
-                                id: window.location.hostname,
-                            },
-                            user: {
-                                id: new TextEncoder().encode(username),
-                                name: username,
-                                displayName: username,
-                            },
-
-                            pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-
-                            authenticatorSelection: {
-                                userVerification: "preferred",
-                                requireResidentKey: true,
-                                residentKey: "required",
-                            },
-                            timeout: 60000,
-                            attestation: "none",
-                            extensions: {
-                                prf: {},
-                            },
-                        };
-
-                        const credential = await navigator.credentials.create({
-                            publicKey: publicKeyOptions,
-                        });
-
-                        const extensionResults =
-                            credential.getClientExtensionResults();
-                        const prfSupported =
-                            extensionResults.prf?.enabled || false;
-
-                        if (!prfSupported) {
-                            showToast(
-                                "PRF not supported. Cannot register.",
-                                "error",
-                            );
-                            loginBtn.disabled = false;
-                            loginBtn.textContent = "Login / Register";
-                            return;
-                        }
-
-                        const credentialId = credential.id;
-                        const credentialIdBytes = new Uint8Array(
-                            credential.rawId,
-                        );
-                        await saveCredential(
-                            username,
-                            credentialId,
-                            credentialIdBytes,
-                            true,
-                        );
-
+                        await R1DO.registerPasskey(username);
                         showToast("Registered successfully!", "success");
                         await renderExistingUsers();
                     }
 
-                    // Key derivation
-                    const savedCred = await getCredential(username);
-                    const credentialIdBytes = new Uint8Array(
-                        savedCred.credentialIdRaw,
-                    );
-                    const challenge = new TextEncoder().encode(
-                        DERIVATION_MESSAGE,
-                    );
-                    const prfSalt = new TextEncoder().encode(
-                        DERIVATION_MESSAGE,
-                    );
-
-                    const prfSupported = savedCred.prfSupported || false;
-                    const assertion = await navigator.credentials.get({
-                        publicKey: {
-                            challenge: challenge,
-                            allowCredentials: [
-                                {
-                                    id: credentialIdBytes,
-                                    type: "public-key",
-                                },
-                            ],
-                            userVerification: "required",
-                            timeout: 60000,
-                            extensions: prfSupported
-                                ? {
-                                      prf: {
-                                          eval: {
-                                              first: prfSalt,
-                                          },
-                                      },
-                                  }
-                                : {},
-                        },
+                    // One biometric gesture: unified suite PRF, plus the old
+                    // notes salt as `second` to migrate pre-v2 data.
+                    const { prfOutput, legacyPrf } = await R1DO.authenticate({
+                        username,
+                        legacySalt: R1DO.LEGACY_PRF_SALT_NOTES,
                     });
 
-                    const response = assertion.response;
-                    const extensionResults =
-                        assertion.getClientExtensionResults();
-                    const prfResults = extensionResults.prf?.results?.first;
+                    // Identity (shared with chat) + per-purpose keys, all
+                    // HKDF siblings — compromising one no longer exposes
+                    // the others.
+                    const identity = await R1DO.deriveP256Identity(prfOutput);
+                    currentPrivateKey = identity.privateKey;
+                    currentPublicKey = Array.from(identity.publicKey);
 
-                    if (!prfResults) {
-                        showToast("PRF failed", "error");
-                        loginBtn.disabled = false;
-                        loginBtn.textContent = "Login / Register";
-                        return;
+                    currentAESKey = await R1DO.hkdfAesKey(
+                        prfOutput,
+                        R1DO.INFO.NOTES_DEK,
+                    );
+                    currentContactsKey = await R1DO.hkdfAesKey(
+                        prfOutput,
+                        R1DO.INFO.CONTACTS_DEK,
+                    );
+
+                    if (legacyPrf) {
+                        currentLegacyPrivateKey =
+                            R1DO.legacyIdentityFromPrf(legacyPrf).privateKey;
+                        await migrateLegacyNotes(legacyPrf);
+                        R1DO.zeroize(legacyPrf);
                     }
+                    R1DO.zeroize(prfOutput);
 
-                    const prfBytes = new Uint8Array(prfResults);
-                    let hash = prfBytes;
-
-                    let attempt = 0;
-                    while (
-                        BigInt("0x" + bytesToHex(hash)) >= CURVE_ORDER_P256
-                    ) {
-                        const combined = new Uint8Array(hash.length + 1);
-                        combined.set(hash);
-                        combined.set([attempt++], hash.length);
-                        hash = sha256(combined);
-                    }
-
-                    const privateKey = hash;
-                    const publicKey = p256.getPublicKey(privateKey, false);
-
-                    currentPrivateKey = privateKey;
-                    currentPublicKey = Array.from(publicKey);
-
-                    // Derive AES key
-                    const info = new TextEncoder().encode(
-                        "aes-encryption-key-v1",
-                    );
-                    const salt = new Uint8Array(32);
-                    const prk = sha256(
-                        new Uint8Array([...salt, ...privateKey]),
-                    );
-                    const aesKeyMaterial = sha256(
-                        new Uint8Array([...prk, ...info, 0x01]),
-                    );
-
-                    currentAESKey = await crypto.subtle.importKey(
-                        "raw",
-                        aesKeyMaterial,
-                        { name: "AES-GCM" },
-                        false,
-                        ["encrypt", "decrypt"],
-                    );
+                    contactsCache = await R1DO.loadContacts(currentContactsKey);
 
                     currentUsername = username;
 
@@ -3307,10 +3064,15 @@
 
             logoutBtn.addEventListener("click", () => {
                 currentAESKey = null;
+                currentContactsKey = null;
                 currentUsername = null;
                 currentNoteId = null;
+                R1DO.zeroize(currentPrivateKey);
                 currentPrivateKey = null;
                 currentPublicKey = null;
+                R1DO.zeroize(currentLegacyPrivateKey);
+                currentLegacyPrivateKey = null;
+                contactsCache = [];
                 notes = [];
 
                 authSection.style.display = "flex";
@@ -3572,13 +3334,13 @@
                     showToast("Decrypting...", "info");
 
                     const encrypted = JSON.parse(atob(encryptedText));
-                    const decryptedContent = await decryptFromSender(
+                    const result = await decryptFromSender(
                         encrypted,
                         currentPrivateKey,
                     );
 
                     // Load in editor
-                    const lines = decryptedContent.split("\n");
+                    const lines = result.text.split("\n");
                     noteTitle.value = lines[0] || "Shared Note";
                     noteContent.value = lines.slice(1).join("\n");
                     currentNoteId = null;
@@ -3588,7 +3350,30 @@
 
                     sharedNoteInput.value = "";
 
-                    showToast("Note decrypted successfully", "success");
+                    // Sender authentication (v2 envelopes are signed)
+                    if (result.verified === true) {
+                        const known = getContacts().find(
+                            (c) =>
+                                c.publicKey.toLowerCase() ===
+                                result.senderPublicKeyHex.toLowerCase(),
+                        );
+                        showToast(
+                            known
+                                ? `Note decrypted — signed by ${known.name} ✓`
+                                : "Note decrypted — valid signature, sender not in contacts",
+                            "success",
+                        );
+                    } else if (result.verified === false) {
+                        showToast(
+                            "⚠ Decrypted, but the sender signature is INVALID",
+                            "error",
+                        );
+                    } else {
+                        showToast(
+                            "Note decrypted (legacy format — unsigned)",
+                            "success",
+                        );
+                    }
 
                     if (window.innerWidth <= 768) {
                         closeSidebar();
@@ -4087,13 +3872,8 @@
                                 clearAllNotes();
                                 clearAllContacts();
 
-                                // Clear IndexedDB
-                                const dbs = await indexedDB.databases();
-                                for (const dbInfo of dbs) {
-                                    if (dbInfo.name === DB_NAME) {
-                                        indexedDB.deleteDatabase(dbInfo.name);
-                                    }
-                                }
+                                // Clear credential stores (current + legacy)
+                                R1DO.deleteDatabases();
 
                                 settingsModal.classList.remove("active");
                                 showToast("All data cleared", "success");

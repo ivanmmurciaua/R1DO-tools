@@ -1318,10 +1318,7 @@
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS
 ═══════════════════════════════════════════════════════════ */
-const RP_NAME = 'R1DO Tasks';
-const RP_ID   = window.location.hostname;
-
-const HKDF_SALT = new TextEncoder().encode('r1dotasks-v1');
+import * as R1DO from './js/r1do-auth.js';
 
 const INBOX_ID = '__inbox__'; // virtual project for tasks with projectId === null
 const INBOX_PROJ = { id: INBOX_ID, name: 'Tasks', color: '#64748b' };
@@ -1414,29 +1411,9 @@ function toast(msg, type = 'info', dur = 3000) {
    PRF output is zeroised immediately after key derivation.
 ═══════════════════════════════════════════════════════════ */
 async function deriveKeysFromPRF(prfOutput) {
-  // Import raw PRF bytes as HKDF material
-  const ikm = await crypto.subtle.importKey(
-    'raw', prfOutput,
-    { name: 'HKDF' },
-    false,
-    ['deriveKey']
-  );
-
-  // DEK: AES-256-GCM (encrypt/decrypt task data)
-  const dek = await crypto.subtle.deriveKey(
-    {
-      name: 'HKDF',
-      hash: 'SHA-256',
-      salt: HKDF_SALT,
-      info: new TextEncoder().encode('data-encryption-v1'),
-    },
-    ikm,
-    { name: 'AES-GCM', length: 256 },
-    false, // non-extractable
-    ['encrypt', 'decrypt']
-  );
-
-  return dek;
+  // DEK: AES-256-GCM, non-extractable. Unified suite PRF + HKDF with the
+  // tasks-specific info label (key tree independent from notes/chat/wallet).
+  return R1DO.hkdfAesKey(prfOutput, R1DO.INFO.TASKS_DEK);
 }
 
 async function encryptData(plaintext) {
@@ -1495,158 +1472,86 @@ function zeroise() {
    AUTH MODULE  (WebAuthn PRF — IndexedDB credential store)
 ═══════════════════════════════════════════════════════════ */
 
-// Default PRF salt for new credentials (deterministic, not secret)
-const PRF_SALT_DEFAULT = new TextEncoder().encode('r1dotasks-prf-v1');
-
-// ── IndexedDB — shared R1DONotesDB (same DB as R1DO Notes) ──
-let _credDb = null;
-
-async function initCredDB() {
-  if (_credDb) return _credDb;
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open('R1DONotesDB', 1);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('credentials')) {
-        const store = db.createObjectStore('credentials', { keyPath: 'username' });
-        store.createIndex('credentialId', 'credentialId', { unique: true });
-        store.createIndex('createdAt',    'createdAt',    { unique: false });
-      }
-    };
-    req.onsuccess = e => { _credDb = e.target.result; resolve(_credDb); };
-    req.onerror   = () => reject(req.error);
-  });
-}
-
+// ── Credential store: shared R1DOToolsDB via js/r1do-auth.js ──
+// (auto-migrates records from the legacy R1DONotesDB)
 // Internal format: { id, rawId, userName }
-// DB format (R1DO Notes compatible): { username, credentialId, credentialIdRaw, prfSupported, createdAt }
-
-async function _idbPutCred({ id, rawId, userName }) {
-  const db = await initCredDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('credentials', 'readwrite');
-    tx.objectStore('credentials').put({
-      username:        userName,
-      credentialId:    id,
-      credentialIdRaw: rawId,
-      prfSupported:    true,
-      createdAt:       new Date().toISOString(),
-    });
-    tx.oncomplete = resolve;
-    tx.onerror    = () => reject(tx.error);
-  });
-}
 
 async function _idbGetAllCreds() {
-  const db = await initCredDB();
-  return new Promise((resolve, reject) => {
-    const tx  = db.transaction('credentials', 'readonly');
-    const req = tx.objectStore('credentials').getAll();
-    req.onsuccess = () => resolve(req.result.map(r => ({
-      id:       r.credentialId,
-      rawId:    r.credentialIdRaw,
-      userName: r.username,
-    })));
-    req.onerror = () => reject(req.error);
-  });
+  const records = await R1DO.listCredentials();
+  return records.map(r => ({
+    id:       r.credentialId,
+    rawId:    r.credentialIdRaw,
+    userName: r.username,
+  }));
 }
 
-// Delete by credentialId (lookup via index, delete by primary key = username)
-async function _idbDeleteCred(credentialId) {
-  const db = await initCredDB();
-  return new Promise((resolve, reject) => {
-    const tx    = db.transaction('credentials', 'readwrite');
-    const store = tx.objectStore('credentials');
-    const req   = store.index('credentialId').getKey(credentialId);
-    req.onsuccess = () => {
-      if (req.result != null) store.delete(req.result);
-      resolve();
-    };
-    req.onerror = () => reject(req.error);
-  });
-}
+// Delete by credentialId
+const _idbDeleteCred = (credentialId) => R1DO.deleteCredentialById(credentialId);
 
 // ── WebAuthn ──
 async function register(userName) {
-  const challenge = crypto.getRandomValues(new Uint8Array(32));
-  const userId    = crypto.getRandomValues(new Uint8Array(16));
-
-  let credential;
   try {
-    credential = await navigator.credentials.create({
-      publicKey: {
-        challenge,
-        rp: { name: RP_NAME, id: RP_ID },
-        user: { id: userId, name: userName, displayName: userName },
-        pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
-        authenticatorSelection: {
-          userVerification: 'preferred',
-          requireResidentKey: true,
-          residentKey: 'required',
-        },
-        timeout: 60000,
-        attestation: 'none',
-        extensions: { prf: {} },
-      },
-    });
+    const { credentialId } = await R1DO.registerPasskey(userName);
+    return credentialId; // so caller can auto-login
   } catch (e) {
     throw new Error('Registro cancelado: ' + e.message);
   }
+}
 
-  const prfResult = credential.getClientExtensionResults()?.prf;
-  if (!prfResult?.enabled) {
-    throw new Error(
-      'WebAuthn PRF no disponible. Requisito: Chrome 132+, Safari 17.4+ o Firefox 130+ con HTTPS o localhost.'
-    );
+// One-time migration: records encrypted under the old tasks scheme
+// (PRF salt r1dotasks-prf-v1 + HKDF salt r1dotasks-v1) are re-encrypted
+// with the unified DEK. Runs transparently at login; needs S.dek set.
+async function migrateLegacyRecords(legacyPrf) {
+  let legacyDek = null;
+  let migrated  = 0;
+
+  for (const storageKey of [SK.TASKS, SK.PROJECTS, SK.SESSIONS]) {
+    const raw = JSON.parse(localStorage.getItem(storageKey) ?? '[]');
+    let changed = false;
+
+    for (const record of raw) {
+      try {
+        await decryptData(record.enc);
+        continue; // already on the unified key
+      } catch { /* try the legacy key */ }
+      try {
+        if (!legacyDek) legacyDek = await R1DO.legacyTasksDek(legacyPrf);
+        const entity = JSON.parse(await R1DO.aesDecrypt(legacyDek, record.enc));
+        record.enc = await encryptData(entity);
+        changed = true;
+        migrated++;
+      } catch (e) {
+        console.warn('Could not migrate record', record.id, e);
+      }
+    }
+
+    if (changed) localStorage.setItem(storageKey, JSON.stringify(raw));
   }
 
-  await _idbPutCred({
-    id:    credential.id,
-    rawId: Array.from(new Uint8Array(credential.rawId)),
-    userName,
-  });
-
-  return credential.id; // so caller can auto-login
+  if (migrated > 0) toast(`Migrated ${migrated} record(s) to the unified key`, 'success');
 }
 
 // credId: optional — authenticate a specific credential (by id)
 async function authenticate(credId) {
-  const creds     = await _idbGetAllCreds();
-  const challenge = crypto.getRandomValues(new Uint8Array(32));
-
-  const targetCred = credId ? creds.find(c => c.id === credId) : null;
-  const allowList  = targetCred
-    ? [{ type: 'public-key', id: new Uint8Array(targetCred.rawId) }]
-    : creds.map(c => ({ type: 'public-key', id: new Uint8Array(c.rawId) }));
-
-  const getOptions = {
-    publicKey: {
-      challenge,
-      userVerification: 'required',
-      timeout: 60000,
-      extensions: { prf: { eval: { first: PRF_SALT_DEFAULT } } },
-    },
-  };
-  if (allowList.length > 0) getOptions.publicKey.allowCredentials = allowList;
-
-  let assertion;
+  let result;
   try {
-    assertion = await navigator.credentials.get(getOptions);
+    result = await R1DO.authenticate({
+      credentialId: credId ?? null,
+      legacySalt: R1DO.LEGACY_PRF_SALT_TASKS,
+    });
   } catch (e) {
     throw new Error('Autenticación cancelada: ' + e.message);
   }
 
-  const prfOutput = assertion.getClientExtensionResults()?.prf?.results?.first;
-  if (!prfOutput) {
-    throw new Error('No se recibió PRF output. El dispositivo puede no soportar esta extensión.');
+  S.dek = await deriveKeysFromPRF(result.prfOutput);
+
+  if (result.legacyPrf) {
+    await migrateLegacyRecords(result.legacyPrf);
+    R1DO.zeroize(result.legacyPrf);
   }
+  R1DO.zeroize(result.prfOutput); // zeroise PRF material immediately
 
-  const prfBytes = new Uint8Array(prfOutput);
-  S.dek = await deriveKeysFromPRF(prfBytes);
-  prfBytes.fill(0); // zeroise PRF material immediately
-
-  const usedCred = creds.find(c => c.id === assertion.id) ?? targetCred ?? creds[0];
-  S.userName = usedCred?.userName ?? 'Usuario';
+  S.userName = result.username ?? 'Usuario';
   return S.userName;
 }
 
@@ -3998,7 +3903,7 @@ document.getElementById('mobile-hamburger').onclick = openSidebar;
 document.getElementById('sidebar-overlay').onclick  = closeSidebar;
 
 // Boot
-initCredDB().then(() => showAuthScreen());
+R1DO.initCredDB().then(() => showAuthScreen());
 </script>
 </body>
 </html>
