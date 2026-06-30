@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>R1DO Tools</title>
+        <title>R1DO</title>
         <style>
             * {
                 margin: 0;
@@ -53,7 +53,92 @@
             .subtitle {
                 font-size: 16px;
                 color: #64748b;
-                margin-bottom: 48px;
+                margin-bottom: 32px;
+            }
+
+            /* ── Identity (passkey) ── */
+            .identity {
+                background: #ffffff;
+                border: 1px solid #e0e0e0;
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 32px;
+                text-align: left;
+            }
+
+            .identity h2 {
+                font-size: 15px;
+                font-weight: 600;
+                color: #1a1a1a;
+                margin-bottom: 12px;
+            }
+
+            .identity input {
+                width: 100%;
+                padding: 12px 14px;
+                font-size: 15px;
+                border: 1px solid #e0e0e0;
+                border-radius: 8px;
+                margin-bottom: 10px;
+                outline: none;
+            }
+
+            .identity input:focus {
+                border-color: #94a3b8;
+            }
+
+            .toggle {
+                display: flex;
+                align-items: flex-start;
+                gap: 8px;
+                font-size: 12px;
+                color: #64748b;
+                margin-bottom: 12px;
+                cursor: pointer;
+                line-height: 1.4;
+            }
+
+            .toggle input {
+                width: auto;
+                margin: 2px 0 0 0;
+                flex-shrink: 0;
+            }
+
+            .identity button {
+                width: 100%;
+                padding: 12px 14px;
+                font-size: 15px;
+                font-weight: 500;
+                color: #ffffff;
+                background: #1a1a1a;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: opacity 0.2s ease;
+            }
+
+            .identity button:hover {
+                opacity: 0.85;
+            }
+
+            .identity button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+
+            .status {
+                font-size: 13px;
+                color: #64748b;
+                margin-top: 10px;
+                min-height: 18px;
+            }
+
+            .status.ok {
+                color: #16a34a;
+            }
+
+            .status.err {
+                color: #dc2626;
             }
 
             .grid {
@@ -92,7 +177,7 @@
                 background: #f1f5f9;
                 border-color: #e2e8f0;
                 cursor: not-allowed;
-                opacity: 0.7;
+                opacity: 0.6;
             }
 
             .grid-btn.disabled:hover {
@@ -123,32 +208,21 @@
                     align-items: flex-start;
                     padding-top: 20px;
                 }
-
-                .container {
-                    padding: 40px 16px;
-                }
-
                 .title {
                     font-size: 24px;
                 }
-
                 .subtitle {
                     font-size: 14px;
-                    margin-bottom: 36px;
                 }
-
                 .grid {
                     gap: 12px;
                 }
-
                 .grid-btn {
                     padding: 24px 16px;
                 }
-
                 .btn-icon {
                     font-size: 30px;
                 }
-
                 .btn-label {
                     font-size: 14px;
                 }
@@ -158,32 +232,45 @@
     <body>
         <div class="container">
             <div class="logo">🔐</div>
-            <h1 class="title">Welcome to R1DO Tools</h1>
+            <h1 class="title">Welcome to R1DO</h1>
             <p class="subtitle">Your sovereignty is closer than ever.</p>
 
+            <!-- Identity: the single point where the passkey is created (the id seed) -->
+            <div class="identity">
+                <h2>Your identity</h2>
+                <input id="username" type="text" placeholder="username" autocomplete="off" spellcheck="false" />
+                <label class="toggle">
+                    <input id="device-bound" type="checkbox" />
+                    <span>Device-bound (non-discoverable · this device only, not synced)</span>
+                </label>
+                <button id="create-passkey">Create passkey</button>
+                <p id="status" class="status"></p>
+            </div>
+
             <div class="grid">
-                <a href="notes.html" class="grid-btn">
+                <a href="/notes" class="grid-btn">
                     <span class="btn-icon">📝</span>
                     <span class="btn-label">Notes</span>
                 </a>
-
-                <a href="tasks.html" class="grid-btn">
+                <a href="/tasks" class="grid-btn">
                     <span class="btn-icon">📋</span>
                     <span class="btn-label">Task Manager</span>
                 </a>
-
-                <a href="chat.html" class="grid-btn">
+                <a href="/chat" class="grid-btn">
                     <span class="btn-icon">💬</span>
                     <span class="btn-label">Chat</span>
                 </a>
-
-                <a href="wallet/" class="grid-btn">
+                <!-- Wallet llega después vía rewrite a /wallet (mismo origen). Deshabilitado por ahora. -->
+                <div class="grid-btn disabled" aria-disabled="true">
                     <span class="btn-icon">💰</span>
                     <span class="btn-label">Wallet</span>
-                    <span class="btn-badge">(Beta. ETH. Sepolia)</span>
-                </a>
+                    <span class="btn-badge">(soon)</span>
                 </div>
             </div>
         </div>
+
+        <script type="module" src="/src/main.js"></script>
+        <!-- Vercel Web Analytics (same-origin /_vercel/insights, sin cookies/PII) -->
+        <script defer src="/_vercel/insights/script.js"></script>
     </body>
 </html>

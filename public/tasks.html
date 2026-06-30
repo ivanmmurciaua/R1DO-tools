@@ -1,0 +1,3872 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>R1DO Tasks</title>
+  <meta name="description" content="End-to-end encrypted task management with WebAuthn PRF">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f0f1a;
+      --surface:   #1a1a2e;
+      --surface2:  #22223a;
+      --surface3:  #2a2a45;
+      --border:    #2e2e50;
+      --text:      #e2e8f0;
+      --text2:     #94a3b8;
+      --text3:     #64748b;
+      --accent:    #8b5cf6;
+      --accent-h:  #7c3aed;
+      --accent-s:  #a78bfa;
+      --green:     #10b981;
+      --yellow:    #f59e0b;
+      --red:       #ef4444;
+      --orange:    #f97316;
+      --radius:    8px;
+      --radius-lg: 12px;
+    }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Layout ── */
+    .screen { display: flex; height: 100vh; }
+    .screen.hidden { display: none !important; }
+
+    /* ── Auth ── */
+    #auth-screen {
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(ellipse at 50% 0%, #1a1040 0%, var(--bg) 70%);
+    }
+    .auth-wrap {
+      width: 100%;
+      max-width: 420px;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .auth-logo {
+      text-align: center;
+    }
+    .auth-logo .logo-glyph {
+      font-size: 48px;
+      line-height: 1;
+      margin-bottom: 12px;
+      display: block;
+      filter: drop-shadow(0 0 20px #8b5cf680);
+    }
+    .auth-logo h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .auth-logo p {
+      color: var(--text2);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .auth-badges {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 11px;
+      color: var(--text2);
+      letter-spacing: 0.3px;
+    }
+    .badge.accent {
+      background: #1e1040;
+      border-color: var(--accent);
+      color: var(--accent-s);
+    }
+    .compat-warn {
+      background: #2d1a00;
+      border: 1px solid var(--yellow);
+      border-radius: var(--radius);
+      padding: 12px;
+      font-size: 13px;
+      color: var(--yellow);
+      line-height: 1.6;
+    }
+
+    /* ── App layout ── */
+    #app-screen { overflow: hidden; }
+
+    #sidebar {
+      width: 280px;
+      min-width: 280px;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    #main {
+      flex: 1;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* ── Sidebar ── */
+    .sb-header {
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+      min-height: 56px;
+    }
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #3b82f6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .user-name {
+      flex: 1;
+      font-weight: 600;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .session-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
+    }
+
+    .sb-section {
+      padding: 12px 8px 4px;
+    }
+    .sb-section-header {
+      display: flex;
+      align-items: center;
+      padding: 0 8px 6px;
+      gap: 4px;
+    }
+    .sb-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      color: var(--text3);
+      flex: 1;
+      text-transform: uppercase;
+    }
+    .sb-tasks-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sb-tasks-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 8px 8px;
+    }
+
+    .project-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.1s;
+    }
+    .project-item:hover { background: var(--surface2); }
+    .project-item.selected { background: var(--surface3); }
+    .project-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .project-label {
+      flex: 1;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .count-badge {
+      background: var(--surface3);
+      border-radius: 10px;
+      padding: 1px 6px;
+      font-size: 11px;
+      color: var(--text2);
+      flex-shrink: 0;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.1s;
+    }
+    .task-item:hover { background: var(--surface2); }
+    .task-item.selected { background: var(--surface3); }
+    .task-check-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+    }
+    .task-item.status-done .task-check-icon {
+      background: var(--green);
+      border-color: var(--green);
+      color: white;
+    }
+    .task-item.status-in_progress .task-check-icon {
+      border-color: var(--accent);
+    }
+    .task-item-label {
+      flex: 1;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .task-item.status-done .task-item-label { text-decoration: line-through; color: var(--text3); }
+    .prio-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .prio-dot.p1 { background: var(--text2); }
+    .prio-dot.p2 { background: var(--yellow); }
+    .prio-dot.p3 { background: var(--red); }
+
+    .sb-footer {
+      padding: 10px 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Main content areas ── */
+    .welcome-view {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--text2);
+      padding: 40px;
+    }
+    .welcome-glyph {
+      font-size: 56px;
+      opacity: 0.3;
+    }
+    .welcome-view h2 { font-size: 20px; color: var(--text); }
+    .welcome-view p { font-size: 14px; text-align: center; max-width: 300px; }
+
+    .project-overview {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px;
+    }
+    .proj-overview-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .proj-dot-lg {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .proj-overview-header h2 { font-size: 22px; font-weight: 700; }
+    .proj-overview-header .sub { color: var(--text2); font-size: 13px; margin-top: 2px; }
+    .proj-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+    .progress-bar-wrap {
+      height: 4px;
+      background: var(--surface3);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+    .progress-label { font-size: 12px; color: var(--text2); margin-bottom: 20px; }
+
+    .tasks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .task-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .task-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .task-card.status-done { opacity: 0.6; }
+    .task-card-top {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .status-pill {
+      border-radius: 10px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .status-pill.todo { background: var(--surface3); color: var(--text2); }
+    .status-pill.in_progress { background: #1e1040; color: var(--accent-s); }
+    .status-pill.done { background: #0d2a1f; color: var(--green); }
+    .status-pill.archived { background: var(--surface3); color: var(--text3); }
+
+    .prio-pill {
+      border-radius: 10px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .prio-pill.p1 { background: var(--surface3); color: var(--text2); }
+    .prio-pill.p2 { background: #2d2200; color: var(--yellow); }
+    .prio-pill.p3 { background: #2d1010; color: var(--red); }
+
+    .task-card-title { font-size: 13px; font-weight: 500; margin-bottom: 8px; line-height: 1.4; }
+    .task-card-meta { font-size: 12px; color: var(--text2); display: flex; gap: 12px; }
+
+    /* Timer panel toggle — desktop: always expanded, no toggle visible */
+    .timer-panel-toggle { display: none; }
+    .timer-panel-body { padding: 24px 20px; }
+
+    /* ── Task detail layout ── */
+    .task-detail-wrap {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 28px 40px;
+    }
+    .timer-panel {
+      width: 300px;
+      min-width: 300px;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 20px;
+    }
+
+    .task-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 12px;
+    }
+    .task-breadcrumb .bc-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .task-title-edit {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      outline: none;
+      border: none;
+      background: transparent;
+      width: 100%;
+      resize: none;
+      line-height: 1.3;
+      margin-bottom: 16px;
+      border-radius: var(--radius);
+      padding: 4px 0;
+    }
+    .task-title-edit:focus {
+      background: var(--surface2);
+      padding: 4px 8px;
+    }
+
+    .task-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .meta-field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text3);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .pomo-track {
+      margin-bottom: 20px;
+    }
+    .pomo-track label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text3);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .pomo-dots {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .pomo-dot {
+      font-size: 18px;
+      opacity: 0.3;
+      line-height: 1;
+    }
+    .pomo-dot.done { opacity: 1; }
+
+    .notes-section { margin-bottom: 20px; }
+    .notes-section label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text3);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .subtasks-section { margin-bottom: 20px; }
+    .subtasks-section .sh {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .subtasks-section .sh label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text3);
+      text-transform: uppercase;
+      flex: 1;
+    }
+    .subtask-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .subtask-item:last-child { border-bottom: none; }
+    .subtask-title {
+      flex: 1;
+      font-size: 13px;
+    }
+    .subtask-title.done { text-decoration: line-through; color: var(--text3); }
+
+    .task-actions-row {
+      display: flex;
+      gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Pomodoro timer ── */
+    .timer-phase-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--text3);
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .timer-display {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 80px;
+      font-weight: 200;
+      text-align: center;
+      letter-spacing: -3px;
+      color: var(--text);
+      margin-bottom: 20px;
+      line-height: 1;
+      padding: 16px 0;
+    }
+    .timer-display.break { color: var(--green); }
+    .timer-display.idle { color: var(--text2); }
+    .timer-controls {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .timer-session-info {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text2);
+      margin-bottom: 20px;
+    }
+    .timer-sep {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+    .timer-cfg {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .timer-cfg-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .timer-cfg-row label {
+      flex: 1;
+      font-size: 12px;
+      color: var(--text2);
+    }
+    .timer-cfg-row input {
+      width: 56px;
+    }
+    .timer-sessions-log {
+      margin-top: 16px;
+    }
+    .timer-sessions-log label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text3);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .session-log-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text2);
+    }
+    .session-log-item:last-child { border-bottom: none; }
+    .session-quality {
+      display: flex;
+      gap: 2px;
+    }
+    .quality-star { color: var(--yellow); font-size: 10px; }
+
+    /* ── Form controls ── */
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    textarea,
+    select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 7px 10px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    input::placeholder, textarea::placeholder { color: var(--text3); }
+    textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+    select { cursor: pointer; }
+    select option { background: var(--surface2); }
+
+    .input-group { display: flex; flex-direction: column; gap: 6px; }
+    .input-group label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text2);
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: var(--radius);
+      border: 1px solid transparent;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s, opacity 0.1s;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-h); border-color: var(--accent-h); }
+
+    .btn-secondary {
+      background: var(--surface3);
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface2); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text2);
+      border-color: transparent;
+    }
+    .btn-ghost:hover:not(:disabled) { background: var(--surface2); color: var(--text); }
+
+    .btn-danger {
+      background: var(--red);
+      color: white;
+      border-color: var(--red);
+    }
+    .btn-danger:hover:not(:disabled) { background: #dc2626; }
+
+    .btn-danger-ghost {
+      background: transparent;
+      color: var(--red);
+      border-color: transparent;
+    }
+    .btn-danger-ghost:hover:not(:disabled) { background: #2d1010; }
+
+    .btn-icon {
+      padding: 5px;
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius);
+    }
+    .btn-large {
+      padding: 11px 20px;
+      font-size: 14px;
+    }
+    .btn-full { width: 100%; }
+
+    /* ── Toast ── */
+    #toast-root {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 9999;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      font-size: 13px;
+      max-width: 320px;
+      box-shadow: 0 4px 20px #00000060;
+      animation: slideIn 0.2s ease;
+      pointer-events: auto;
+    }
+    .toast.success { border-color: var(--green); color: var(--green); }
+    .toast.error   { border-color: var(--red);   color: var(--red);   }
+    .toast.warning { border-color: var(--yellow); color: var(--yellow); }
+    @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+    /* ── Modal ── */
+    #modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: #00000080;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9000;
+      backdrop-filter: blur(2px);
+    }
+    #modal-overlay.hidden { display: none; }
+    #modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 80vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 20px 60px #00000080;
+    }
+    #modal-box h3 {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .color-picker {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.1s;
+    }
+    .color-swatch:hover { transform: scale(1.1); }
+    .color-swatch.selected { border-color: white; }
+
+    .quality-grid {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .quality-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius);
+      background: var(--surface2);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.1s;
+      font-family: inherit;
+    }
+    .quality-btn:hover { border-color: var(--accent); background: var(--surface3); }
+    .quality-label { text-align: center; font-size: 12px; color: var(--text2); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+    /* ── Misc ── */
+    .divider { height: 1px; background: var(--border); margin: 4px 0; }
+    .empty-hint { font-size: 12px; color: var(--text3); padding: 6px 10px; }
+    .text2 { color: var(--text2); }
+    .text3 { color: var(--text3); }
+    .monospace { font-family: monospace; }
+    .session-timer-bar {
+      height: 3px;
+      background: var(--surface3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .session-timer-fill {
+      height: 100%;
+      background: var(--green);
+      transition: width 1s linear;
+    }
+
+    /* ── Sidebar nav items ── */
+    .sb-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      margin: 0;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.1s;
+      border-radius: var(--radius);
+      color: var(--text2);
+      user-select: none;
+    }
+    .sb-nav-item:hover { background: var(--surface2); color: var(--text); }
+    .sb-nav-item.active { background: var(--surface3); color: var(--text); }
+    .sb-nav-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+
+    /* ── Stats view ── */
+    .stats-view {
+      flex: 1; overflow-y: auto; padding: 28px 32px;
+    }
+    .stats-header {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .stats-header h2 { font-size: 22px; font-weight: 700; flex: 1; }
+    .period-tabs {
+      display: flex; gap: 4px;
+      background: var(--surface2); border-radius: var(--radius); padding: 3px;
+    }
+    .period-tab {
+      padding: 4px 12px; border-radius: 6px; border: none;
+      background: transparent; color: var(--text2); font-size: 12px;
+      font-weight: 500; cursor: pointer; font-family: inherit; transition: all .15s;
+    }
+    .period-tab.active { background: var(--surface3); color: var(--text); }
+    .kanban-board {
+      display: flex; gap: 12px; overflow-x: auto; padding-bottom: 16px;
+      align-items: flex-start; min-height: 300px;
+    }
+    .kanban-col {
+      flex: 1 1 200px; min-width: 200px; background: var(--surface2); border-radius: var(--radius);
+      padding: 12px; min-height: 120px; transition: background .15s, outline .15s;
+    }
+    .kanban-col.drag-over {
+      background: color-mix(in srgb, var(--accent) 10%, var(--surface2));
+      outline: 2px dashed var(--accent);
+    }
+    .kanban-col-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .kanban-col-label {
+      font-size: 11px; font-weight: 600; color: var(--text2);
+      text-transform: uppercase; letter-spacing: .05em;
+    }
+    .kanban-col-count {
+      background: var(--surface3); border-radius: 10px;
+      padding: 1px 7px; font-size: 11px; color: var(--text2);
+    }
+    .kanban-card {
+      background: var(--surface); border-radius: 8px; padding: 10px 12px;
+      margin-bottom: 8px; cursor: grab; border: 1px solid var(--border);
+      user-select: none; transition: box-shadow .15s, opacity .15s;
+    }
+    .kanban-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.18); }
+    .kanban-card:active { cursor: grabbing; }
+    .kanban-card.dragging { opacity: .35; }
+    .kanban-card-title { font-size: 13px; font-weight: 500; margin-bottom: 6px; line-height: 1.35; }
+    .kanban-card-meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 11px; color: var(--text2); align-items: center; }
+    .kanban-card-prio { padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+    .kanban-card-prio.p1 { background: #22c55e22; color: #22c55e; }
+    .kanban-card-prio.p2 { background: #f59e0b22; color: #f59e0b; }
+    .kanban-card-prio.p3 { background: #ef444422; color: #ef4444; }
+    .kanban-card-important { font-size: 11px; }
+    .warboard-toggle {
+      display: flex; gap: 4px; background: var(--surface2);
+      border-radius: var(--radius); padding: 3px; width: fit-content; margin-bottom: 16px;
+    }
+    .warboard-mode-btn {
+      padding: 4px 14px; border-radius: 6px; border: none;
+      background: transparent; color: var(--text2); font-size: 12px;
+      font-weight: 500; cursor: pointer; font-family: inherit; transition: all .15s;
+    }
+    .warboard-mode-btn.active { background: var(--surface3); color: var(--text); }
+    .matrix-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .matrix-quadrant {
+      background: var(--surface2); border-radius: var(--radius);
+      padding: 14px; min-height: 180px; transition: background .15s, outline .15s;
+    }
+    .matrix-quadrant.drag-over {
+      background: color-mix(in srgb, var(--accent) 10%, var(--surface2));
+      outline: 2px dashed var(--accent);
+    }
+    .matrix-q-header { margin-bottom: 10px; }
+    .matrix-q-label { font-size: 12px; font-weight: 700; margin-bottom: 2px; display: flex; align-items: center; justify-content: space-between; }
+    .matrix-q-desc { font-size: 11px; color: var(--text2); }
+    .matrix-q-count { background: var(--surface3); border-radius: 10px; padding: 1px 7px; font-size: 11px; color: var(--text2); }
+    .matrix-q1 .matrix-q-label { color: #ef4444; }
+    .matrix-q2 .matrix-q-label { color: #3b82f6; }
+    .matrix-q3 .matrix-q-label { color: #f59e0b; }
+    .matrix-q4 .matrix-q-label { color: #64748b; }
+    .matrix-axis-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
+    .matrix-axis-label { text-align: center; font-size: 10px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .07em; padding: 2px 0; }
+    .stats-cards {
+      display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 18px 16px;
+    }
+    .stat-card-icon { font-size: 20px; margin-bottom: 10px; display: block; }
+    .stat-card-val {
+      font-size: 26px; font-weight: 700; color: var(--text);
+      line-height: 1; margin-bottom: 4px;
+    }
+    .stat-card-lbl { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: .5px; }
+    .stats-section { margin-bottom: 28px; }
+    .stats-section-title {
+      font-size: 11px; font-weight: 600; letter-spacing: .6px;
+      color: var(--text3); text-transform: uppercase; margin-bottom: 14px;
+    }
+    /* Project bars */
+    .proj-bar-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    }
+    .proj-bar-name { font-size: 13px; width: 130px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .proj-bar-track { flex: 1; height: 10px; background: var(--surface3); border-radius: 5px; overflow: hidden; }
+    .proj-bar-fill { height: 100%; border-radius: 5px; transition: width .4s ease; }
+    .proj-bar-val { font-size: 12px; color: var(--text2); width: 56px; text-align: right; flex-shrink: 0; }
+    /* Heatmap */
+    .heatmap-wrap { overflow-x: auto; }
+    .heatmap {
+      display: grid; grid-template-rows: repeat(7,12px);
+      grid-auto-flow: column; gap: 3px;
+    }
+    .hm-cell {
+      width: 12px; height: 12px; border-radius: 2px;
+      background: var(--surface3);
+    }
+    .hm-cell.l1 { background: #3b1f6e; }
+    .hm-cell.l2 { background: #5b2fa0; }
+    .hm-cell.l3 { background: #7c3aed; }
+    .hm-cell.l4 { background: #a78bfa; }
+    .heatmap-labels {
+      display: flex; gap: 3px; margin-bottom: 4px; padding-left: 0;
+    }
+    .hm-month-label { font-size: 10px; color: var(--text3); }
+    /* Quality bars */
+    .quality-bars { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+    .quality-bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
+    .quality-bar-fill {
+      width: 100%; border-radius: 3px 3px 0 0;
+      background: var(--accent); min-height: 3px; transition: height .3s;
+    }
+    .quality-bar-lbl { font-size: 9px; color: var(--text3); }
+    .quality-bar-val { font-size: 10px; color: var(--text2); }
+    .stats-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 768px) {
+      .stats-view { padding: 16px; }
+      .stats-cards { grid-template-columns: 1fr 1fr; }
+      .stats-two-col { grid-template-columns: 1fr; }
+      .proj-bar-name { width: 90px; }
+    }
+
+    /* ── Dashboard ── */
+    .dashboard {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px;
+    }
+    .dash-header { margin-bottom: 24px; }
+    .dash-title { font-size: 24px; font-weight: 700; }
+    .dash-date {
+      color: var(--text2);
+      font-size: 13px;
+      margin-top: 2px;
+      text-transform: capitalize;
+    }
+    .dash-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .dash-stat {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 12px;
+      text-align: center;
+    }
+    .dash-stat-num {
+      display: block;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent-s);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .dash-stat-label {
+      font-size: 11px;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .dash-groups { display: flex; flex-direction: column; gap: 20px; }
+    .dash-group {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+    .dash-group-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface3);
+    }
+    .dash-group-name { font-size: 13px; font-weight: 600; flex: 1; }
+    .dash-task-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    .dash-task-row:last-child { border-bottom: none; }
+    .dash-task-row:hover { background: var(--surface3); }
+    .dash-complete-btn {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid var(--border);
+      background: transparent;
+      cursor: pointer; flex-shrink: 0;
+      transition: border-color 0.15s, color 0.15s;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: transparent;
+    }
+    .dash-complete-btn:hover { border-color: var(--green); color: var(--green); }
+    .dash-task-title-wrap { flex: 1; min-width: 0; cursor: pointer; }
+    .dash-task-info { flex: 1; min-width: 0; }
+    .dash-task-title {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-bottom: 3px;
+    }
+    .dash-task-meta {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+    .dash-overdue {
+      font-size: 11px; font-weight: 600; color: var(--red);
+      background: #2d1010; padding: 1px 6px; border-radius: 8px;
+    }
+    .dash-today {
+      font-size: 11px; font-weight: 600; color: var(--green);
+      background: #0d2a1f; padding: 1px 6px; border-radius: 8px;
+    }
+    .dash-due { font-size: 11px; color: var(--text3); }
+    .dash-empty {
+      text-align: center;
+      padding: 60px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--text2);
+    }
+    .dash-empty h3 { color: var(--text); font-size: 18px; }
+    .dash-empty p { font-size: 14px; max-width: 280px; }
+
+    /* ── Status buttons (task detail) ── */
+    .status-btns {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .status-btn {
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--text3);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .status-btn:hover { border-color: var(--text2); color: var(--text); }
+    .status-btn.active[data-s="todo"]        { background: var(--surface3); color: var(--text);      border-color: var(--text3);  }
+    .status-btn.active[data-s="in_progress"] { background: #1e1040;         color: var(--accent-s);  border-color: var(--accent); }
+    .status-btn.active[data-s="done"]        { background: #0d2a1f;         color: var(--green);     border-color: var(--green);  }
+    .status-btn.active[data-s="archived"]    { background: var(--surface2); color: var(--text3);     border-color: var(--text3);  }
+
+    /* ── Archived section toggle ── */
+    .archived-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text3);
+      cursor: pointer;
+      user-select: none;
+    }
+    .archived-toggle:hover { color: var(--text2); }
+
+    /* ── Mobile topbar ── */
+    .mobile-topbar { display: none; }
+    .sidebar-mobile-overlay { display: none; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      html, body { overflow: auto; height: auto; }
+
+      .mobile-topbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 16px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        height: 52px;
+        flex-shrink: 0;
+      }
+      .mobile-topbar-title {
+        flex: 1;
+        font-weight: 600;
+        font-size: 15px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      #app-screen { flex-direction: column; }
+
+      #sidebar {
+        position: fixed;
+        left: 0; top: 0;
+        z-index: 500;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease;
+        width: 280px;
+        height: 100%;
+        box-shadow: 4px 0 24px #00000080;
+      }
+      #app-screen.sidebar-open #sidebar {
+        transform: translateX(0);
+      }
+      .sidebar-mobile-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #00000060;
+        z-index: 499;
+      }
+      #app-screen.sidebar-open .sidebar-mobile-overlay {
+        display: block;
+      }
+
+      #main {
+        height: auto;
+        min-height: calc(100vh - 52px);
+        flex-direction: column;
+        overflow: visible;
+      }
+
+      .timer-panel {
+        width: 100%;
+        min-width: unset;
+        height: auto;
+        border-left: none;
+        border-top: 1px solid var(--border);
+      }
+      .timer-panel-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 20px;
+        cursor: pointer;
+        user-select: none;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text2);
+      }
+      .timer-panel-toggle:hover { color: var(--text); }
+      .timer-panel-toggle .toggle-arrow { font-size: 11px; transition: transform 0.2s; }
+      .timer-panel.collapsed .timer-panel-toggle .toggle-arrow { transform: rotate(-90deg); }
+      .timer-panel-body { padding: 0 20px 20px; }
+      .timer-panel.collapsed .timer-panel-body { display: none; }
+
+      .task-detail-wrap { padding: 16px 16px 24px; overflow-y: visible; height: auto; }
+
+      .task-meta-grid { grid-template-columns: 1fr 1fr; }
+
+      .dash-stats { grid-template-columns: 1fr 1fr; }
+      .dashboard { padding: 16px; }
+
+      .project-overview { padding: 16px 16px 32px; }
+
+      .tasks-grid { grid-template-columns: 1fr; }
+
+      .kanban-col { flex: 0 0 78vw; min-width: 78vw; }
+      .matrix-grid { grid-template-columns: 1fr; }
+      .matrix-axis-row { display: none; }
+
+      #modal-box { margin: 12px; max-width: calc(100vw - 24px); }
+
+      #toast-root { bottom: 16px; right: 12px; left: 12px; }
+      .toast { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════ AUTH SCREEN ════════════════════════ -->
+<div id="auth-screen" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-logo">
+      <span class="logo-glyph">◈</span>
+      <h1>R1DO Tasks</h1>
+      <p>End-to-end encrypted task management</p>
+    </div>
+    <div id="auth-card-slot"></div>
+    <div class="auth-badges">
+      <span class="badge">Local-First</span>
+      <span class="badge">WebAuthn PRF</span>
+      <span class="badge">AES-256-GCM</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════ APP SCREEN ════════════════════════ -->
+<div id="app-screen" class="screen hidden">
+  <!-- Mobile top bar (hidden on desktop) -->
+  <div class="mobile-topbar">
+    <button class="btn btn-ghost btn-icon" id="mobile-hamburger" style="font-size:18px">☰</button>
+    <span class="mobile-topbar-title" id="mobile-title">R1DO Tasks</span>
+    <button class="btn btn-ghost btn-icon" id="mobile-new-task" title="New task" style="font-size:18px">+</button>
+  </div>
+  <!-- Sidebar overlay (mobile) -->
+  <div class="sidebar-mobile-overlay" id="sidebar-overlay"></div>
+  <aside id="sidebar"></aside>
+  <main id="main"></main>
+</div>
+
+<!-- Toast container -->
+<div id="toast-root"></div>
+
+<!-- Modal overlay -->
+<div id="modal-overlay" class="hidden">
+  <div id="modal-box"></div>
+</div>
+
+<script type="module">
+/* ═══════════════════════════════════════════════════════════
+   CONSTANTS
+═══════════════════════════════════════════════════════════ */
+import * as R1DO from './js/r1do-auth.js';
+
+const INBOX_ID = '__inbox__'; // virtual project for tasks with projectId === null
+const INBOX_PROJ = { id: INBOX_ID, name: 'Tasks', color: '#64748b' };
+
+const SK = { // storage keys
+  TASKS      : 'r1do_tasks',
+  PROJECTS   : 'r1do_projects',
+  SESSIONS   : 'r1do_sessions',
+  POM_CFG    : 'r1do_pom_cfg',
+};
+
+const COLORS = ['#8b5cf6','#3b82f6','#10b981','#f59e0b','#ef4444','#ec4899','#06b6d4','#f97316'];
+
+/* ═══════════════════════════════════════════════════════════
+   APP STATE
+═══════════════════════════════════════════════════════════ */
+const S = {
+  // Crypto
+  dek: null,           // CryptoKey | null  (AES-256-GCM, non-extractable)
+
+  // Data
+  projects: [],
+  tasks: [],
+  sessions: [],
+
+  // UI selection
+  selectedProjectId: null,
+  selectedTaskId: null,
+  view: 'dashboard',       // 'dashboard' | 'project' | 'completed' | 'stats'
+  statsPeriod: 30,         // days: 7 | 30 | 90 | 0 (all)
+  showArchived: false,
+  showCompleted: false,
+  projectTab: 'tasks',     // 'tasks' | 'warboard' | 'stats'
+  warboardMode: 'kanban',  // 'kanban' | 'matrix'
+
+  // Pomodoro
+  pomState: 'idle',    // idle | focus | short_break | long_break | paused
+  pomSeconds: 25 * 60,
+  pomInterval: null,
+  pomCurrentSession: null, // PomodoroSession being recorded
+  pomCount: 0,         // focus cycles completed in current streak
+  pomCfg: {
+    focus:       25,
+    shortBreak:  5,
+    longBreak:   15,
+    streakLength: 4,
+  },
+
+  userName: '',
+};
+
+/* ═══════════════════════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════════════════════ */
+function uid() { return crypto.randomUUID(); }
+function iso() { return new Date().toISOString(); }
+
+function fmtTime(s) {
+  const m = String(Math.floor(s / 60)).padStart(2,'0');
+  const ss = String(s % 60).padStart(2,'0');
+  return `${m}:${ss}`;
+}
+
+function escHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
+
+function statusLabel(s) {
+  return { todo:'To do', in_progress:'In progress', done:'Completed', archived:'Archived' }[s] ?? s;
+}
+
+function prioLabel(p) {
+  return ['—','Low','Medium','Urgent'][p] ?? '—';
+}
+
+function toast(msg, type = 'info', dur = 3000) {
+  const root = document.getElementById('toast-root');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  root.appendChild(el);
+  setTimeout(() => el.remove(), dur);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CRYPTO MODULE
+   DEK lives exclusively in RAM as a non-extractable CryptoKey.
+   PRF output is zeroised immediately after key derivation.
+═══════════════════════════════════════════════════════════ */
+async function deriveKeysFromPRF(prfOutput) {
+  // DEK: AES-256-GCM, non-extractable. Unified suite PRF + HKDF with the
+  // tasks-specific info label (key tree independent from notes/chat/wallet).
+  return R1DO.hkdfAesKey(prfOutput, R1DO.INFO.TASKS_DEK);
+}
+
+async function encryptData(plaintext) {
+  if (!S.dek) throw new Error('Sesión bloqueada');
+
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(JSON.stringify(plaintext));
+
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    S.dek,
+    encoded
+  );
+
+  // Store as plain JSON arrays (safe for localStorage)
+  return {
+    v:  1,
+    iv: Array.from(iv),
+    ct: Array.from(new Uint8Array(ciphertext)),
+  };
+}
+
+async function decryptData(blob) {
+  if (!S.dek) throw new Error('Sesión bloqueada');
+  if (!blob?.iv || !blob?.ct) throw new Error('Blob inválido');
+
+  const iv         = new Uint8Array(blob.iv);
+  const ciphertext = new Uint8Array(blob.ct);
+
+  const plaintext = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    S.dek,
+    ciphertext
+  );
+
+  return JSON.parse(new TextDecoder().decode(plaintext));
+}
+
+function zeroise() {
+  // CryptoKey is non-extractable; dropping the reference is the best we can do in JS.
+  // PRF output raw bytes are zeroised immediately after deriveKeysFromPRF().
+  S.dek = null;
+  S.projects = [];
+  S.tasks = [];
+  S.sessions = [];
+  S.selectedProjectId = null;
+  S.selectedTaskId = null;
+  S.view = 'dashboard';
+  S.showArchived = false;
+  S.statsPeriod = 30;
+  stopPomodoro();
+  showAuthScreen();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTH MODULE  (WebAuthn PRF — IndexedDB credential store)
+═══════════════════════════════════════════════════════════ */
+
+// ── Credential store: shared R1DOToolsDB via js/r1do-auth.js ──
+// Internal format: { id, rawId, userName }
+
+async function _idbGetAllCreds() {
+  const records = await R1DO.listCredentials();
+  return records.map(r => ({
+    id:       r.credentialId,
+    rawId:    r.credentialIdRaw,
+    userName: r.username,
+  }));
+}
+
+// Delete by credentialId
+const _idbDeleteCred = (credentialId) => R1DO.deleteCredentialById(credentialId);
+
+// ── WebAuthn ──
+async function register(userName) {
+  try {
+    const { credentialId } = await R1DO.registerPasskey(userName);
+    return credentialId; // so caller can auto-login
+  } catch (e) {
+    throw new Error('Registro cancelado: ' + e.message);
+  }
+}
+
+// credId: optional — authenticate a specific credential (by id)
+async function authenticate(credId) {
+  let result;
+  try {
+    result = await R1DO.authenticate({
+      credentialId: credId ?? null,
+    });
+  } catch (e) {
+    throw new Error('Autenticación cancelada: ' + e.message);
+  }
+
+  S.dek = await deriveKeysFromPRF(result.prfOutput);
+
+  R1DO.zeroize(result.prfOutput); // zeroise PRF material immediately
+
+  S.userName = result.username ?? 'Usuario';
+  return S.userName;
+}
+
+function checkWebAuthnSupport() {
+  if (!window.PublicKeyCredential) return 'sin-webauthn';
+  return 'ok';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STORAGE MODULE
+   All entity payloads are AES-256-GCM blobs.
+   Only metadata (id, timestamp) is stored in clear.
+═══════════════════════════════════════════════════════════ */
+async function loadAllData() {
+  const rawTasks    = JSON.parse(localStorage.getItem(SK.TASKS)    ?? '[]');
+  const rawProjects = JSON.parse(localStorage.getItem(SK.PROJECTS) ?? '[]');
+  const rawSessions = JSON.parse(localStorage.getItem(SK.SESSIONS) ?? '[]');
+
+  const decryptList = async (list) => {
+    const results = [];
+    for (const r of list) {
+      try { results.push(await decryptData(r.enc)); }
+      catch { /* skip corrupted records */ }
+    }
+    return results;
+  };
+
+  S.projects = await decryptList(rawProjects);
+  S.tasks    = await decryptList(rawTasks);
+  S.sessions = await decryptList(rawSessions);
+
+  // Load persisted pomodoro config
+  const savedCfg = JSON.parse(localStorage.getItem(SK.POM_CFG) ?? 'null');
+  if (savedCfg) Object.assign(S.pomCfg, savedCfg);
+  if (S.pomState === 'idle') S.pomSeconds = S.pomCfg.focus * 60;
+}
+
+async function _upsert(storageKey, stateArray, entity) {
+  entity.modifiedAt = iso();
+  const enc    = await encryptData(entity);
+  const record = { id: entity.id, ts: entity.modifiedAt, enc };
+
+  const raw = JSON.parse(localStorage.getItem(storageKey) ?? '[]');
+  const idx = raw.findIndex(r => r.id === entity.id);
+  if (idx >= 0) raw[idx] = record; else raw.push(record);
+  localStorage.setItem(storageKey, JSON.stringify(raw));
+
+  const si = stateArray.findIndex(e => e.id === entity.id);
+  if (si >= 0) stateArray[si] = entity; else stateArray.push(entity);
+}
+
+async function _delete(storageKey, stateArray, id) {
+  const raw = JSON.parse(localStorage.getItem(storageKey) ?? '[]');
+  localStorage.setItem(storageKey, JSON.stringify(raw.filter(r => r.id !== id)));
+  const idx = stateArray.findIndex(e => e.id === id);
+  if (idx >= 0) stateArray.splice(idx, 1);
+}
+
+const saveProject = (p) => _upsert(SK.PROJECTS, S.projects, p);
+const saveTask    = (t) => _upsert(SK.TASKS,    S.tasks,    t);
+
+async function saveSession(sess) {
+  sess.modifiedAt = iso();
+  const enc    = await encryptData(sess);
+  const record = { id: sess.id, ts: sess.startedAt, enc };
+  const raw = JSON.parse(localStorage.getItem(SK.SESSIONS) ?? '[]');
+  raw.push(record);
+  localStorage.setItem(SK.SESSIONS, JSON.stringify(raw));
+  S.sessions.push(sess);
+}
+
+async function deleteTask(id) {
+  await _delete(SK.TASKS, S.tasks, id);
+}
+
+async function deleteProject(id) {
+  await _delete(SK.PROJECTS, S.projects, id);
+  // Cascade: delete project tasks
+  const ids = S.tasks.filter(t => t.projectId === id).map(t => t.id);
+  for (const tid of ids) await deleteTask(tid);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   POMODORO MODULE
+═══════════════════════════════════════════════════════════ */
+function effectivePomCfg() {
+  const task = S.tasks.find(t => t.id === S.selectedTaskId);
+  return task?.pomCfg ? { ...S.pomCfg, ...task.pomCfg } : S.pomCfg;
+}
+
+function stopPomodoro() {
+  clearInterval(S.pomInterval);
+  S.pomInterval = null;
+  S.pomState = 'idle';
+  S.pomCurrentSession = null;
+  S.pomCount = 0;
+  S.pomSeconds = effectivePomCfg().focus * 60;
+}
+
+function startPomodoro(taskId) {
+  const cfg = effectivePomCfg();
+  if (S.pomState === 'idle') {
+    S.pomState = 'focus';
+    S.pomSeconds = cfg.focus * 60;
+    S.pomCurrentSession = {
+      id: uid(),
+      taskId,
+      type: 'focus',
+      durationSeconds: cfg.focus * 60,
+      startedAt: iso(),
+      endedAt: null,
+      completed: false,
+      interruptionCount: 0,
+      focusQualityScore: null,
+    };
+  } else if (S.pomState === 'paused') {
+    S.pomState = 'focus';
+  }
+  S.pomInterval = setInterval(() => tickPomodoro(taskId), 1000);
+  renderTimer();
+}
+
+function pausePomodoro() {
+  if (S.pomState !== 'focus') return;
+  clearInterval(S.pomInterval);
+  S.pomInterval = null;
+  if (S.pomCurrentSession) S.pomCurrentSession.interruptionCount++;
+  S.pomState = 'paused';
+  renderTimer();
+}
+
+async function skipPomodoro(taskId) {
+  clearInterval(S.pomInterval);
+  S.pomInterval = null;
+
+  if (S.pomState === 'focus' && S.pomCurrentSession) {
+    S.pomCurrentSession.completed = false;
+    S.pomCurrentSession.endedAt = iso();
+    S.pomCurrentSession.durationSeconds = Math.round((new Date(S.pomCurrentSession.endedAt) - new Date(S.pomCurrentSession.startedAt)) / 1000);
+    await saveSession({ ...S.pomCurrentSession });
+    S.pomCurrentSession = null;
+  }
+
+  if (S.pomState === 'short_break' || S.pomState === 'long_break') {
+    S.pomState = 'idle';
+    S.pomSeconds = effectivePomCfg().focus * 60;
+    S.pomCount = 0;
+  } else {
+    S.pomState = 'idle';
+    S.pomSeconds = effectivePomCfg().focus * 60;
+  }
+  renderTimer();
+}
+
+async function tickPomodoro(taskId) {
+  S.pomSeconds--;
+
+  if (S.pomSeconds <= 0) {
+    await completePomodoroPhase(taskId);
+  }
+  renderTimer();
+}
+
+function playPomSound(type) {
+  try {
+    const ctx = new AudioContext();
+    const sequences = {
+      // Focus done: three ascending soft tones
+      focus: [
+        { freq: 523.25, start: 0,    dur: 0.18, gain: 0.35 }, // C5
+        { freq: 659.25, start: 0.2,  dur: 0.18, gain: 0.35 }, // E5
+        { freq: 783.99, start: 0.4,  dur: 0.30, gain: 0.40 }, // G5
+      ],
+      // Break done: two gentle descending tones
+      break: [
+        { freq: 659.25, start: 0,   dur: 0.18, gain: 0.30 }, // E5
+        { freq: 523.25, start: 0.22, dur: 0.28, gain: 0.30 }, // C5
+      ],
+    };
+    for (const { freq, start, dur, gain } of (sequences[type] ?? sequences.focus)) {
+      const osc  = ctx.createOscillator();
+      const env  = ctx.createGain();
+      osc.type      = 'sine';
+      osc.frequency.value = freq;
+      env.gain.setValueAtTime(0, ctx.currentTime + start);
+      env.gain.linearRampToValueAtTime(gain, ctx.currentTime + start + 0.01);
+      env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur);
+      osc.connect(env);
+      env.connect(ctx.destination);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur + 0.05);
+    }
+    setTimeout(() => ctx.close(), 1500);
+  } catch { /* AudioContext not available */ }
+}
+
+async function completePomodoroPhase(taskId) {
+  clearInterval(S.pomInterval);
+  S.pomInterval = null;
+
+  if (S.pomState === 'focus') {
+    S.pomCount++;
+
+    if (S.pomCurrentSession) {
+      S.pomCurrentSession.completed = true;
+      S.pomCurrentSession.endedAt = iso();
+      S.pomCurrentSession.durationSeconds = Math.round((new Date(S.pomCurrentSession.endedAt) - new Date(S.pomCurrentSession.startedAt)) / 1000);
+      const sess = { ...S.pomCurrentSession };
+      S.pomCurrentSession = null;
+      await saveSession(sess);
+
+      // Increment task completed pomodoros
+      const task = S.tasks.find(t => t.id === taskId);
+      if (task) {
+        task.completedPomodoros = (task.completedPomodoros ?? 0) + 1;
+        await saveTask(task);
+        // Re-render task detail pomodoro dots
+        const dotsEl = document.getElementById('pomo-dots');
+        if (dotsEl) dotsEl.innerHTML = buildPomoDots(task);
+        const countEl = document.getElementById('pomo-count');
+        if (countEl) countEl.textContent = `${task.completedPomodoros} completed`;
+      }
+
+      // Ask quality score
+      showQualityScoreModal(sess.id);
+    }
+
+    // Determine next phase
+    const cfg2 = effectivePomCfg();
+    const isLongBreak = S.pomCount % cfg2.streakLength === 0;
+    playPomSound('focus');
+    if (isLongBreak) {
+      S.pomState = 'long_break';
+      S.pomSeconds = cfg2.longBreak * 60;
+      toast('Streak complete! Take a long break.', 'success');
+    } else {
+      S.pomState = 'short_break';
+      S.pomSeconds = cfg2.shortBreak * 60;
+      toast('Pomodoro complete! Take a short break.', 'success');
+    }
+
+    // Auto-start break
+    S.pomInterval = setInterval(() => tickPomodoro(taskId), 1000);
+
+  } else {
+    // Break ended
+    playPomSound('break');
+    S.pomState = 'idle';
+    S.pomSeconds = effectivePomCfg().focus * 60;
+    toast('Break over. Ready to focus!', 'info');
+  }
+}
+
+function buildPomoDots(task) {
+  const done = task.completedPomodoros ?? 0;
+  if (done === 0) return '<span class="text3">No sessions yet</span>';
+  return Array.from({ length: done }, () => `<span class="pomo-dot done">🍅</span>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI — AUTH SCREEN
+═══════════════════════════════════════════════════════════ */
+function showAuthScreen() {
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('app-screen').classList.add('hidden');
+  renderAuthCard();
+}
+
+function showAppScreen() {
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('app-screen').classList.remove('hidden');
+  renderApp();
+}
+
+async function renderAuthCard() {
+  const slot    = document.getElementById('auth-card-slot');
+  const support = checkWebAuthnSupport();
+
+  if (support === 'sin-webauthn') {
+    slot.innerHTML = `
+      <div class="compat-warn">
+        <strong>Browser not supported</strong><br>
+        WebAuthn is not available. Use Chrome 132+, Safari 17.4+ or Firefox 130+.<br>
+        Access via <code>http://localhost</code> (not by IP).
+      </div>`;
+    return;
+  }
+
+  const creds = await _idbGetAllCreds();
+
+  if (creds.length > 0) {
+    slot.innerHTML = `
+      <div class="auth-card">
+        <p class="text2" style="font-size:12px;text-transform:uppercase;letter-spacing:.5px;font-weight:600">Registered accounts</p>
+        <div id="cred-list" style="display:flex;flex-direction:column;gap:8px">
+          ${creds.map(c => `
+            <div style="display:flex;align-items:center;gap:10px;background:var(--surface3);border-radius:var(--radius);padding:10px 12px">
+              <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#3b82f6);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">
+                ${escHtml(c.userName.charAt(0).toUpperCase())}
+              </div>
+              <span style="flex:1;font-size:14px;font-weight:500">${escHtml(c.userName)}</span>
+              <button class="btn btn-primary" data-cid="${escHtml(c.id)}" style="padding:5px 12px;font-size:12px">
+                Sign in
+              </button>
+            </div>`).join('')}
+        </div>
+        <button class="btn btn-ghost btn-full" id="btn-add-account" style="font-size:13px;margin-top:4px">
+          + Add another account
+        </button>
+      </div>`;
+
+    slot.querySelectorAll('[data-cid]:not(.del-cred)').forEach(btn => {
+      btn.onclick = () => handleLogin(btn.dataset.cid);
+    });
+    document.getElementById('btn-add-account').onclick = showRegisterForm;
+  } else {
+    showRegisterForm();
+  }
+}
+
+function showRegisterForm() {
+  const slot = document.getElementById('auth-card-slot');
+  slot.innerHTML = `
+    <div class="auth-card">
+      <p class="text2">Create your account with biometrics. No passwords, no servers.</p>
+      <div class="input-group">
+        <label for="input-name">Your name</label>
+        <input id="input-name" type="text" placeholder="e.g. John Doe" maxlength="50" autocomplete="name">
+      </div>
+      <button class="btn btn-primary btn-large btn-full" id="btn-register">
+        Create account with Passkey
+      </button>
+      <button class="btn btn-ghost btn-full" id="btn-back-to-list" style="font-size:12px">← Back</button>
+    </div>`;
+  const inp = document.getElementById('input-name');
+  document.getElementById('btn-register').onclick = handleRegister;
+  inp.onkeydown = e => { if (e.key === 'Enter') handleRegister(); };
+  document.getElementById('btn-back-to-list').onclick = renderAuthCard;
+  inp.focus();
+}
+
+async function handleRegister() {
+  const inp  = document.getElementById('input-name');
+  const name = inp?.value?.trim();
+  if (!name) { toast('Enter your name', 'error'); return; }
+
+  const btn = document.getElementById('btn-register');
+  btn.disabled = true;
+  btn.textContent = 'Creating account…';
+
+  try {
+    const credId = await register(name);
+    // Auto-login immediately after registration
+    btn.textContent = 'Signing in…';
+    const userName = await authenticate(credId);
+    await loadAllData();
+    showAppScreen();
+    toast(`Welcome, ${userName}`, 'success');
+  } catch (e) {
+    toast(e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Create account with Passkey';
+  }
+}
+
+async function handleLogin(credId) {
+  // Disable the clicked button
+  const btn = credId
+    ? document.querySelector(`[data-cid="${CSS.escape(credId)}"]:not(.del-cred)`)
+    : document.getElementById('btn-unlock');
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+
+  try {
+    const name = await authenticate(credId);
+    await loadAllData();
+    showAppScreen();
+    toast(`Welcome, ${name}`, 'success');
+  } catch (e) {
+    toast(e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Sign in'; }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI — APP SHELL
+═══════════════════════════════════════════════════════════ */
+function renderApp() {
+  renderSidebar();
+  renderMain();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI — SIDEBAR
+═══════════════════════════════════════════════════════════ */
+function renderSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const isInboxSel = S.selectedProjectId === INBOX_ID;
+  const selProj = isInboxSel ? INBOX_PROJ : S.projects.find(p => p.id === S.selectedProjectId);
+  const projTasks = selProj
+    ? (isInboxSel
+        ? S.tasks.filter(t => (t.projectId === null || t.projectId === undefined) && t.status !== 'archived')
+        : S.tasks.filter(t => t.projectId === selProj.id && t.status !== 'archived'))
+    : [];
+
+  const sortedTasks = [...projTasks].sort((a, b) => {
+    const o = { in_progress: 0, todo: 1, done: 2 };
+    return (o[a.status] ?? 3) - (o[b.status] ?? 3);
+  });
+
+  const doneCount = S.tasks.filter(t => t.status === 'done').length;
+
+  sidebar.innerHTML = `
+    <!-- Header -->
+    <div class="sb-header">
+      <div class="user-avatar">${escHtml(S.userName.charAt(0).toUpperCase() || '?')}</div>
+      <span class="user-name">${escHtml(S.userName)}</span>
+      <button class="btn btn-ghost btn-icon" id="sb-btn-lock" title="Lock session">🔒</button>
+    </div>
+
+    <!-- Nav items -->
+    <div class="sb-section" style="padding-bottom:0">
+      <div class="sb-nav-item${S.view === 'dashboard' && !S.selectedTaskId ? ' active' : ''}" id="nav-dashboard">
+        <span class="sb-nav-icon">◈</span> Dashboard
+      </div>
+      <div class="sb-nav-item${S.view === 'completed' ? ' active' : ''}" id="nav-completed">
+        <span class="sb-nav-icon">✓</span> Completed
+        ${doneCount > 0 ? `<span class="count-badge" style="margin-left:auto">${doneCount}</span>` : ''}
+      </div>
+      <div class="sb-nav-item${S.view === 'stats' ? ' active' : ''}" id="nav-stats">
+        <span class="sb-nav-icon">◎</span> Metrics
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Projects -->
+    <div class="sb-section">
+      <div class="sb-section-header">
+        <span class="sb-section-label">Projects</span>
+        <button class="btn btn-ghost btn-icon" id="sb-btn-new-proj" title="New project">+</button>
+      </div>
+      ${(() => {
+        const inboxTasks = S.tasks.filter(t => (t.projectId === null || t.projectId === undefined) && t.status !== 'done' && t.status !== 'archived');
+        const inboxActive = S.selectedProjectId === INBOX_ID && S.view === 'project';
+        const inboxHTML = `
+          <div class="project-item${inboxActive ? ' selected' : ''}" data-pid="${INBOX_ID}">
+            <span class="project-dot" style="background:${INBOX_PROJ.color}"></span>
+            <span class="project-label">${INBOX_PROJ.name}</span>
+            ${inboxTasks.length > 0 ? `<span class="count-badge">${inboxTasks.length}</span>` : ''}
+          </div>`;
+        const projsHTML = S.projects.filter(p => !p.archivedAt).map(p => {
+          const open = S.tasks.filter(t => t.projectId === p.id && t.status !== 'done' && t.status !== 'archived').length;
+          const isActive = p.id === S.selectedProjectId && S.view === 'project';
+          return `
+            <div class="project-item${isActive ? ' selected' : ''}" data-pid="${p.id}">
+              <span class="project-dot" style="background:${p.color}"></span>
+              <span class="project-label">${escHtml(p.name)}</span>
+              ${open > 0 ? `<span class="count-badge">${open}</span>` : ''}
+            </div>`;
+        }).join('');
+        return inboxHTML + projsHTML;
+      })()}
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Tasks for selected project -->
+    ${selProj && S.view === 'project' ? `
+      <div class="sb-section sb-tasks-section">
+        <div class="sb-section-header">
+          <span class="sb-section-label">Tasks</span>
+          <button class="btn btn-ghost btn-icon" id="sb-btn-new-task" title="New task">+</button>
+        </div>
+        <div class="sb-tasks-list">
+          ${sortedTasks.map(t => {
+            const icon = t.status === 'done' ? '✓' : t.status === 'in_progress' ? '▶' : '';
+            return `
+              <div class="task-item${t.id === S.selectedTaskId ? ' selected' : ''} status-${t.status}" data-tid="${t.id}">
+                <span class="task-check-icon">${icon}</span>
+                <span class="task-item-label">${escHtml(t.title)}</span>
+                ${t.priority >= 2 ? `<span class="prio-dot p${t.priority}"></span>` : ''}
+              </div>`;
+          }).join('')}
+          ${sortedTasks.length === 0 ? '<p class="empty-hint">No tasks.</p>' : ''}
+        </div>
+      </div>
+    ` : ''}
+
+    <!-- Footer -->
+    <div class="sb-footer">
+      <button class="btn btn-ghost btn-full btn-sm" id="sb-btn-settings" style="font-size:12px;">
+        Settings &amp; Data
+      </button>
+    </div>
+  `;
+
+  // Events
+  document.getElementById('sb-btn-lock').onclick = zeroise;
+  document.getElementById('sb-btn-new-proj').onclick = showNewProjectModal;
+  const btnSettings = document.getElementById('sb-btn-settings');
+  if (btnSettings) btnSettings.onclick = showSettingsModal;
+  const btnNewTask = document.getElementById('sb-btn-new-task');
+  if (btnNewTask) btnNewTask.onclick = showNewTaskModal;
+
+  document.getElementById('nav-dashboard').onclick = () => {
+    S.view = 'dashboard';
+    S.selectedProjectId = null;
+    S.selectedTaskId = null;
+    closeSidebar();
+    renderApp();
+  };
+  document.getElementById('nav-completed').onclick = () => {
+    S.view = 'completed';
+    S.selectedTaskId = null;
+    closeSidebar();
+    renderApp();
+  };
+  document.getElementById('nav-stats').onclick = () => {
+    S.view = 'stats';
+    S.selectedTaskId = null;
+    closeSidebar();
+    renderApp();
+  };
+
+  sidebar.querySelectorAll('.project-item').forEach(el => {
+    el.onclick = () => {
+      const pid = el.dataset.pid === INBOX_ID ? INBOX_ID : el.dataset.pid;
+      if (S.selectedProjectId !== pid) S.projectTab = 'tasks';
+      S.selectedProjectId = pid;
+      S.selectedTaskId = null;
+      S.view = 'project';
+      closeSidebar();
+      renderApp();
+    };
+  });
+
+  sidebar.querySelectorAll('.task-item').forEach(el => {
+    el.onclick = () => {
+      S.selectedTaskId = el.dataset.tid;
+      closeSidebar();
+      renderMain();
+      sidebar.querySelectorAll('.task-item').forEach(x => x.classList.remove('selected'));
+      el.classList.add('selected');
+    };
+  });
+}
+
+function openSidebar() {
+  document.getElementById('app-screen').classList.add('sidebar-open');
+}
+function closeSidebar() {
+  document.getElementById('app-screen').classList.remove('sidebar-open');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI — MAIN CONTENT
+═══════════════════════════════════════════════════════════ */
+function renderMain() {
+  const main = document.getElementById('main');
+
+  // Update mobile title
+  const mobileTitle = document.getElementById('mobile-title');
+  const mobileNewTask = document.getElementById('mobile-new-task');
+
+  if (S.selectedTaskId) {
+    const task = S.tasks.find(t => t.id === S.selectedTaskId);
+    if (task) {
+      if (mobileTitle) mobileTitle.textContent = task.title;
+      if (mobileNewTask) mobileNewTask.style.display = 'none';
+      renderTaskDetail(main, task);
+      return;
+    }
+    S.selectedTaskId = null;
+  }
+
+  if (S.view === 'completed') {
+    if (mobileTitle) mobileTitle.textContent = 'Completed';
+    if (mobileNewTask) mobileNewTask.style.display = 'none';
+    renderCompletedView(main);
+    return;
+  }
+
+  if (S.view === 'stats') {
+    if (mobileTitle) mobileTitle.textContent = 'Metrics';
+    if (mobileNewTask) mobileNewTask.style.display = 'none';
+    renderStatsView(main);
+    return;
+  }
+
+  if (S.view === 'project' && S.selectedProjectId) {
+    const proj = S.projects.find(p => p.id === S.selectedProjectId);
+    if (proj) {
+      if (mobileTitle) mobileTitle.textContent = proj.name;
+      if (mobileNewTask) { mobileNewTask.style.display = ''; mobileNewTask.onclick = showNewTaskModal; }
+      renderProjectOverview(main);
+      return;
+    }
+  }
+
+  // Default: dashboard
+  if (mobileTitle) mobileTitle.textContent = 'R1DO Tasks';
+  if (mobileNewTask) mobileNewTask.style.display = 'none';
+  renderDashboard(main);
+}
+
+function renderDashboard(main) {
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Tasks for today: in_progress, or due today/overdue (not done/archived)
+  const activeTasks = S.tasks.filter(t => {
+    if (t.status === 'archived' || t.status === 'done') return false;
+    if (t.status === 'in_progress') return true;
+    if (t.dueDate && t.dueDate <= today) return true;
+    return false;
+  });
+
+  // Group by project, sort by priority desc within each group
+  const byProject = {};
+  for (const task of activeTasks) {
+    if (!byProject[task.projectId]) byProject[task.projectId] = [];
+    byProject[task.projectId].push(task);
+  }
+  for (const tasks of Object.values(byProject)) {
+    tasks.sort((a, b) => b.priority - a.priority);
+  }
+
+  const totalPending  = S.tasks.filter(t => t.status === 'todo' || t.status === 'in_progress').length;
+  const dueToday      = S.tasks.filter(t => t.dueDate === today && t.status !== 'done' && t.status !== 'archived').length;
+  const inProgress    = S.tasks.filter(t => t.status === 'in_progress').length;
+  const doneTotal     = S.tasks.filter(t => t.status === 'done').length;
+
+  const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const groupsHTML = Object.entries(byProject).map(([pid, tasks]) => {
+    const proj = S.projects.find(p => p.id === pid) ?? (pid === 'null' || pid === null ? INBOX_PROJ : null);
+    if (!proj) return '';
+    return `
+      <div class="dash-group">
+        <div class="dash-group-header">
+          <span class="project-dot" style="background:${proj.color}"></span>
+          <span class="dash-group-name">${escHtml(proj.name)}</span>
+          <span class="count-badge">${tasks.length}</span>
+        </div>
+        ${tasks.map(t => {
+          const isOverdue  = t.dueDate && t.dueDate < today;
+          const isDueToday = t.dueDate === today;
+          return `
+            <div class="dash-task-row" data-tid="${t.id}" data-pid="${t.projectId}">
+              <button class="dash-complete-btn" data-tid="${t.id}" title="Mark as completed">✓</button>
+              <div class="dash-task-title-wrap" data-tid="${t.id}" data-pid="${t.projectId}">
+                <span class="dash-task-title">${escHtml(t.title)}</span>
+                <div class="dash-task-meta">
+                  ${t.priority > 0 ? `<span class="prio-pill p${t.priority}">${prioLabel(t.priority)}</span>` : ''}
+                  ${isOverdue  ? `<span class="dash-overdue">Overdue</span>` : ''}
+                  ${isDueToday ? `<span class="dash-today">Today</span>` : ''}
+                  ${t.dueDate && !isOverdue && !isDueToday ? `<span class="dash-due">📅 ${t.dueDate}</span>` : ''}
+                </div>
+              </div>
+              <span class="status-pill ${t.status}" style="flex-shrink:0">${statusLabel(t.status)}</span>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }).join('');
+
+  main.innerHTML = `
+    <div class="dashboard">
+      <div class="dash-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+        <div>
+          <h2 class="dash-title">Hello, ${escHtml(S.userName.split(' ')[0])}</h2>
+          <p class="dash-date">${dateStr}</p>
+        </div>
+        <button class="btn btn-primary" id="btn-dash-new-task" style="flex-shrink:0;margin-top:4px">+ New task</button>
+      </div>
+
+      <div class="dash-stats">
+        <div class="dash-stat">
+          <span class="dash-stat-num">${activeTasks.length}</span>
+          <span class="dash-stat-label">For today</span>
+        </div>
+        <div class="dash-stat">
+          <span class="dash-stat-num">${inProgress}</span>
+          <span class="dash-stat-label">In progress</span>
+        </div>
+        <div class="dash-stat">
+          <span class="dash-stat-num">${totalPending}</span>
+          <span class="dash-stat-label">Pending</span>
+        </div>
+        <div class="dash-stat">
+          <span class="dash-stat-num">${doneTotal}</span>
+          <span class="dash-stat-label">Completed</span>
+        </div>
+      </div>
+
+      ${activeTasks.length === 0 ? `
+        <div class="dash-empty">
+          <div style="font-size:48px;opacity:.3">✓</div>
+          <h3>All caught up</h3>
+          <p>No urgent or overdue tasks. ${S.projects.length === 0 ? 'Create your first project to get started.' : ''}</p>
+          ${S.projects.length === 0 ? `<button class="btn btn-primary" id="btn-dash-new-proj">+ New Project</button>` : ''}
+        </div>
+      ` : `
+        <div class="dash-groups">${groupsHTML}</div>
+      `}
+    </div>`;
+
+  const btnDashNewProj = document.getElementById('btn-dash-new-proj');
+  if (btnDashNewProj) btnDashNewProj.onclick = showNewProjectModal;
+  const btnDashNewTask = document.getElementById('btn-dash-new-task');
+  if (btnDashNewTask) btnDashNewTask.onclick = showNewTaskModal;
+
+  // Complete button — mark done without navigating
+  main.querySelectorAll('.dash-complete-btn').forEach(btn => {
+    btn.onclick = async e => {
+      e.stopPropagation();
+      const task = S.tasks.find(t => t.id === btn.dataset.tid);
+      if (!task) return;
+      task.status = 'done';
+      await saveTask(task);
+      btn.closest('.dash-task-row').style.opacity = '0';
+      btn.closest('.dash-task-row').style.transition = 'opacity 0.3s';
+      setTimeout(() => renderDashboard(main), 320);
+    };
+  });
+
+  // Click on title/info → navigate to task
+  main.querySelectorAll('.dash-task-title-wrap').forEach(el => {
+    el.onclick = () => {
+      S.selectedProjectId = el.dataset.pid && el.dataset.pid !== 'null' ? el.dataset.pid : INBOX_ID;
+      S.selectedTaskId    = el.dataset.tid;
+      S.view = 'project';
+      renderApp();
+    };
+  });
+}
+
+function fmtMinutes(mins) {
+  if (!mins) return '';
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function renderCompletedView(main) {
+  const done = S.tasks
+    .filter(t => t.status === 'done')
+    .sort((a, b) => (b.modifiedAt ?? '').localeCompare(a.modifiedAt ?? ''));
+
+  const totalMins = done.reduce((acc, t) => acc + (t.manualMinutes ?? 0), 0)
+    + S.sessions.filter(s => s.type === 'focus' && s.completed)
+        .reduce((acc, s) => acc + Math.round((s.durationSeconds ?? 0) / 60), 0);
+
+  const byProject = {};
+  for (const task of done) {
+    if (!byProject[task.projectId]) byProject[task.projectId] = [];
+    byProject[task.projectId].push(task);
+  }
+
+  const groupsHTML = Object.entries(byProject).map(([pid, tasks]) => {
+    const proj = S.projects.find(p => p.id === pid) ?? (pid === 'null' || pid === null ? INBOX_PROJ : null);
+    return `
+      <div style="margin-bottom:28px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+          ${proj ? `<span class="project-dot" style="background:${proj.color}"></span><strong style="font-size:14px">${escHtml(proj.name)}</strong>` : '<strong style="font-size:14px">Tasks</strong>'}
+          <span class="count-badge" style="margin-left:4px">${tasks.length}</span>
+        </div>
+        ${tasks.map(t => {
+          const pomMins = S.sessions
+            .filter(s => s.taskId === t.id && s.type === 'focus' && s.completed)
+            .reduce((a, s) => a + Math.round((s.durationSeconds ?? 0) / 60), 0);
+          const totalT = (t.manualMinutes ?? 0) + pomMins;
+          return `
+            <div class="task-item status-done" data-tid="${t.id}" data-pid="${t.projectId}" style="cursor:pointer">
+              <span class="task-check-icon">✓</span>
+              <span class="task-item-label">${escHtml(t.title)}</span>
+              <span style="font-size:11px;color:var(--text3);flex-shrink:0;margin-left:auto;padding-left:8px">
+                ${totalT > 0 ? `⏱ ${fmtMinutes(totalT)}` : ''}
+              </span>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }).join('');
+
+  main.innerHTML = `
+    <div class="project-overview">
+      <div class="proj-overview-header" style="margin-bottom:20px">
+        <div>
+          <h2>Completed</h2>
+          <p class="sub">${done.length} task${done.length !== 1 ? 's' : ''}${totalMins > 0 ? ` · ⏱ ${fmtMinutes(totalMins)} total` : ''}</p>
+        </div>
+        <div class="proj-actions">
+          <button class="btn btn-primary" id="btn-log-done">+ Log task</button>
+        </div>
+      </div>
+      ${done.length === 0 ? `
+        <div style="text-align:center;padding:60px 20px;color:var(--text3)">
+          No completed tasks. Use the button to log what you've done.
+        </div>` : groupsHTML}
+    </div>`;
+
+  document.getElementById('btn-log-done').onclick = showLogDoneModal;
+
+  main.querySelectorAll('.task-item').forEach(el => {
+    el.onclick = () => {
+      S.selectedProjectId = el.dataset.pid && el.dataset.pid !== 'null' ? el.dataset.pid : INBOX_ID;
+      S.selectedTaskId    = el.dataset.tid;
+      S.view = 'project';
+      renderApp();
+    };
+  });
+}
+
+function showLogDoneModal() {
+  const today = new Date().toISOString().slice(0, 10);
+  const projectOptions = S.projects
+    .filter(p => !p.archivedAt)
+    .map(p => `<option value="${p.id}"${p.id === S.selectedProjectId ? ' selected' : ''}>${escHtml(p.name)}</option>`)
+    .join('');
+
+  showModal(`
+    <h3>Log completed task</h3>
+    <div class="input-group">
+      <label>Project</label>
+      <select id="m-log-proj">
+        <option value="">Tasks (no project)</option>
+        ${projectOptions}
+      </select>
+    </div>
+    <div id="m-pending-list"></div>
+    <div class="input-group">
+      <label>Or type a new one</label>
+      <input id="m-log-title" type="text" placeholder="Task description" maxlength="200">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="input-group">
+        <label>Time spent (min)</label>
+        <input id="m-log-mins" type="number" placeholder="e.g. 45" min="1" max="999">
+      </div>
+      <div class="input-group">
+        <label>Date</label>
+        <input id="m-log-date" type="date" value="${today}">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="m-log-save">Save</button>
+    </div>
+  `);
+
+  let selectedTaskId = null; // existing task picked from list
+
+  function renderPendingList() {
+    const projId  = document.getElementById('m-log-proj').value;
+    const listEl  = document.getElementById('m-pending-list');
+    const pending = projId
+      ? S.tasks.filter(t => t.projectId === projId && (t.status === 'todo' || t.status === 'in_progress'))
+      : S.tasks.filter(t => (t.projectId === null || t.projectId === undefined) && (t.status === 'todo' || t.status === 'in_progress'));
+
+    if (pending.length === 0) { listEl.innerHTML = ''; return; }
+
+    listEl.innerHTML = `
+      <div style="margin-bottom:8px">
+        <p style="font-size:11px;font-weight:600;letter-spacing:.5px;color:var(--text3);text-transform:uppercase;margin-bottom:6px">Pending tasks in project</p>
+        <div style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto">
+          ${pending.map(t => `
+            <div class="pending-pick" data-tid="${t.id}" style="
+              display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:var(--radius);
+              border:1.5px solid var(--border);cursor:pointer;transition:all .15s;font-size:13px
+            ">
+              <span style="width:10px;height:10px;border-radius:50%;background:${
+                t.status === 'in_progress' ? 'var(--accent)' : 'var(--border)'
+              };flex-shrink:0"></span>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.title)}</span>
+              ${t.priority > 0 ? `<span class="prio-pill p${t.priority}">${prioLabel(t.priority)}</span>` : ''}
+            </div>`).join('')}
+        </div>
+      </div>`;
+
+    listEl.querySelectorAll('.pending-pick').forEach(el => {
+      el.onclick = () => {
+        const tid  = el.dataset.tid;
+        const task = S.tasks.find(t => t.id === tid);
+        if (!task) return;
+        // Toggle selection
+        if (selectedTaskId === tid) {
+          selectedTaskId = null;
+          document.getElementById('m-log-title').value = '';
+          document.getElementById('m-log-title').disabled = false;
+          el.style.borderColor = 'var(--border)';
+          el.style.background  = '';
+        } else {
+          selectedTaskId = tid;
+          document.getElementById('m-log-title').value    = task.title;
+          document.getElementById('m-log-title').disabled = true;
+          // Highlight selected, reset others
+          listEl.querySelectorAll('.pending-pick').forEach(e => {
+            e.style.borderColor = 'var(--border)';
+            e.style.background  = '';
+          });
+          el.style.borderColor = 'var(--green)';
+          el.style.background  = '#0d2a1f';
+        }
+      };
+    });
+  }
+
+  // Init list with pre-selected project
+  renderPendingList();
+  document.getElementById('m-log-proj').onchange = () => {
+    selectedTaskId = null;
+    document.getElementById('m-log-title').value    = '';
+    document.getElementById('m-log-title').disabled = false;
+    renderPendingList();
+  };
+
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('m-log-save').onclick = async () => {
+    const mins = parseInt(document.getElementById('m-log-mins').value) || 0;
+    const date = document.getElementById('m-log-date').value || today;
+
+    if (selectedTaskId) {
+      // Mark existing task as done
+      const task = S.tasks.find(t => t.id === selectedTaskId);
+      if (task) {
+        task.status        = 'done';
+        task.manualMinutes = (task.manualMinutes ?? 0) + (mins > 0 ? mins : 0) || null;
+        task.dueDate       = task.dueDate ?? date;
+        await saveTask(task);
+        closeModal();
+        const main = document.getElementById('main');
+        renderCompletedView(main);
+        toast('Task completed', 'success');
+      }
+    } else {
+      const title = document.getElementById('m-log-title').value.trim();
+      if (!title) { toast('Select a task or enter a description', 'error'); return; }
+      const projId = document.getElementById('m-log-proj').value || null;
+      await saveTask({
+        id: uid(), projectId: projId, title, notes: '', status: 'done',
+        priority: 0, estimatedPomodoros: 0, completedPomodoros: 0,
+        manualMinutes: mins > 0 ? mins : null,
+        startDate: date, dueDate: date,
+        tags: [], subtasks: [], createdAt: iso(), modifiedAt: iso(),
+      });
+      closeModal();
+      const main = document.getElementById('main');
+      renderCompletedView(main);
+      toast('Task logged', 'success');
+    }
+  };
+
+  document.getElementById('m-log-title').onkeydown = e => {
+    if (e.key === 'Enter') document.getElementById('m-log-save').click();
+  };
+}
+
+function renderStatsView(main) {
+  const days    = S.statsPeriod;
+  const now     = new Date();
+  const cutoff  = days > 0 ? new Date(now - days * 86400000) : null;
+  const dayStr  = d => d.toISOString().slice(0, 10);
+
+  const focusSessions = S.sessions.filter(s =>
+    s.type === 'focus' && s.completed &&
+    (!cutoff || new Date(s.startedAt) >= cutoff)
+  );
+  const doneTasks = S.tasks.filter(t =>
+    t.status === 'done' &&
+    (!cutoff || new Date(t.modifiedAt) >= cutoff)
+  );
+
+  // ── Stat cards ──
+  const totalSecs   = focusSessions.reduce((a, s) => a + (s.durationSeconds ?? 0), 0)
+                    + doneTasks.reduce((a, t) => a + ((t.manualMinutes ?? 0) * 60), 0);
+  const totalH      = Math.floor(totalSecs / 3600);
+  const totalM      = Math.floor((totalSecs % 3600) / 60);
+  const timeStr     = totalH > 0 ? `${totalH}h ${totalM}m` : `${totalM}m`;
+
+  const qualSess    = focusSessions.filter(s => s.focusQualityScore);
+  const avgQuality  = qualSess.length
+    ? (qualSess.reduce((a, s) => a + s.focusQualityScore, 0) / qualSess.length).toFixed(1)
+    : '—';
+
+  // Streak — consecutive days with at least one focus session
+  const activityDays = new Set(
+    S.sessions.filter(s => s.type === 'focus' && s.completed)
+      .map(s => dayStr(new Date(s.startedAt)))
+  );
+  let streak = 0;
+  const d = new Date(); d.setHours(0,0,0,0);
+  while (activityDays.has(dayStr(d))) { streak++; d.setDate(d.getDate() - 1); }
+  // If today has no activity, check if yesterday started the streak
+  if (streak === 0) {
+    const y = new Date(); y.setDate(y.getDate() - 1); y.setHours(0,0,0,0);
+    while (activityDays.has(dayStr(y))) { streak++; y.setDate(y.getDate() - 1); }
+  }
+
+  // ── Tiempo por proyecto ──
+  const projSecs = {};
+  for (const s of focusSessions) {
+    const task = S.tasks.find(t => t.id === s.taskId);
+    const pid  = task?.projectId ?? '__none__';
+    projSecs[pid] = (projSecs[pid] ?? 0) + (s.durationSeconds ?? 0);
+  }
+  for (const t of doneTasks) {
+    if (t.manualMinutes) {
+      const pid = t.projectId ?? '__none__';
+      projSecs[pid] = (projSecs[pid] ?? 0) + t.manualMinutes * 60;
+    }
+  }
+  const maxProjSecs = Math.max(1, ...Object.values(projSecs));
+  const projBarsHTML = Object.entries(projSecs)
+    .sort((a, b) => b[1] - a[1])
+    .map(([pid, secs]) => {
+      const proj = S.projects.find(p => p.id === pid);
+      const pct  = Math.round(secs / maxProjSecs * 100);
+      const h    = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+      const val  = h > 0 ? `${h}h ${m}m` : `${m}m`;
+      return `
+        <div class="proj-bar-row">
+          <span class="proj-bar-name" title="${escHtml(proj?.name ?? 'No project')}">
+            ${proj ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${proj.color};margin-right:6px;vertical-align:middle"></span>` : ''}${escHtml(proj?.name ?? 'No project')}
+          </span>
+          <div class="proj-bar-track">
+            <div class="proj-bar-fill" style="width:${pct}%;background:${proj?.color ?? 'var(--accent)'}"></div>
+          </div>
+          <span class="proj-bar-val">${val}</span>
+        </div>`;
+    }).join('') || '<p class="empty-hint">No data for this period.</p>';
+
+  // ── Heatmap — últimas 12 semanas (84 días) ──
+  const WEEKS = 15;
+  const DAYS  = WEEKS * 7;
+  const heatStart = new Date(); heatStart.setDate(heatStart.getDate() - DAYS + 1); heatStart.setHours(0,0,0,0);
+
+  // Build map: dateStr → total seconds
+  const dayMap = {};
+  for (const s of S.sessions.filter(s => s.type === 'focus' && s.completed)) {
+    const k = dayStr(new Date(s.startedAt));
+    dayMap[k] = (dayMap[k] ?? 0) + (s.durationSeconds ?? 0);
+  }
+  for (const t of S.tasks.filter(t => t.status === 'done' && t.manualMinutes)) {
+    const k = dayStr(new Date(t.modifiedAt));
+    dayMap[k] = (dayMap[k] ?? 0) + t.manualMinutes * 60;
+  }
+
+  const cells = [];
+  let prevMonth = -1;
+  const monthLabels = [];
+  for (let i = 0; i < DAYS; i++) {
+    const cd = new Date(heatStart); cd.setDate(cd.getDate() + i);
+    const k  = dayStr(cd);
+    const s  = dayMap[k] ?? 0;
+    const h  = s / 3600;
+    const level = h === 0 ? '' : h < 1 ? 'l1' : h < 2 ? 'l2' : h < 4 ? 'l3' : 'l4';
+    cells.push(`<div class="hm-cell ${level}" title="${k}: ${fmtMinutes(Math.round(s/60))}"></div>`);
+    const mo = cd.getMonth();
+    if (mo !== prevMonth) { monthLabels.push({ col: Math.floor(i/7), label: cd.toLocaleDateString('en-US', { month: 'short' }) }); prevMonth = mo; }
+  }
+  const heatmapHTML = `<div class="heatmap">${cells.join('')}</div>`;
+
+  // ── Calidad de foco — últimas 8 semanas ──
+  const weekQuality = [];
+  for (let w = 7; w >= 0; w--) {
+    const wStart = new Date(); wStart.setDate(wStart.getDate() - w*7 - 6); wStart.setHours(0,0,0,0);
+    const wEnd   = new Date(); wEnd.setDate(wEnd.getDate() - w*7 + 1);     wEnd.setHours(0,0,0,0);
+    const wSess  = S.sessions.filter(s => s.type==='focus' && s.completed && s.focusQualityScore && new Date(s.startedAt) >= wStart && new Date(s.startedAt) < wEnd);
+    const avg    = wSess.length ? wSess.reduce((a,s) => a+s.focusQualityScore,0)/wSess.length : 0;
+    const label  = wStart.toLocaleDateString('en-US', { day:'numeric', month:'short' });
+    weekQuality.push({ avg, label, count: wSess.length });
+  }
+  const maxQ = 5;
+  const qualBarsHTML = weekQuality.map(w => `
+    <div class="quality-bar-col">
+      <span class="quality-bar-val">${w.avg > 0 ? w.avg.toFixed(1) : ''}</span>
+      <div class="quality-bar-fill" style="height:${w.avg > 0 ? Math.round(w.avg/maxQ*60) : 3}px;opacity:${w.avg > 0 ? 0.4 + w.avg/maxQ*0.6 : 0.15}"></div>
+      <span class="quality-bar-lbl">${w.label}</span>
+    </div>`).join('');
+
+  // ── Tareas por estado ──
+  const statusCounts = { todo: 0, in_progress: 0, done: 0, archived: 0 };
+  for (const t of S.tasks) statusCounts[t.status] = (statusCounts[t.status] ?? 0) + 1;
+  const totalAllTasks = Math.max(1, Object.values(statusCounts).reduce((a,b) => a+b, 0));
+
+  const periods = [{ v:7, l:'7d' }, { v:30, l:'30d' }, { v:90, l:'90d' }, { v:0, l:'All' }];
+
+  main.innerHTML = `
+    <div class="stats-view">
+      <div class="stats-header">
+        <h2>Metrics</h2>
+        <div class="period-tabs">
+          ${periods.map(p => `<button class="period-tab${S.statsPeriod===p.v?' active':''}" data-period="${p.v}">${p.l}</button>`).join('')}
+        </div>
+      </div>
+
+      <div class="stats-cards">
+        <div class="stat-card">
+          <span class="stat-card-icon">⏱</span>
+          <div class="stat-card-val">${timeStr}</div>
+          <div class="stat-card-lbl">Focus time</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card-icon">✓</span>
+          <div class="stat-card-val">${doneTasks.length}</div>
+          <div class="stat-card-lbl">Tasks completed</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card-icon">🔥</span>
+          <div class="stat-card-val">${streak}</div>
+          <div class="stat-card-lbl">Day streak</div>
+        </div>
+        <div class="stat-card">
+          <span class="stat-card-icon">★</span>
+          <div class="stat-card-val">${avgQuality}</div>
+          <div class="stat-card-lbl">Focus quality</div>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <p class="stats-section-title">Activity — last ${WEEKS} weeks</p>
+        <div class="heatmap-wrap">${heatmapHTML}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:11px;color:var(--text3)">
+          Less
+          <div class="hm-cell"></div>
+          <div class="hm-cell l1"></div>
+          <div class="hm-cell l2"></div>
+          <div class="hm-cell l3"></div>
+          <div class="hm-cell l4"></div>
+          More
+        </div>
+      </div>
+
+      <div class="stats-two-col">
+        <div class="stats-section">
+          <p class="stats-section-title">Time by project</p>
+          ${projBarsHTML}
+        </div>
+        <div class="stats-section">
+          <p class="stats-section-title">Focus quality — last 8 weeks</p>
+          <div class="quality-bars">${qualBarsHTML}</div>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <p class="stats-section-title">Overall task status</p>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">
+          ${[['todo','To do','var(--text3)'],['in_progress','In progress','var(--accent)'],['done','Completed','var(--green)'],['archived','Archived','var(--text3)']].map(([s,l,c]) => `
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:10px;height:10px;border-radius:50%;background:${c}"></div>
+              <span style="font-size:13px;color:var(--text2)">${l}</span>
+              <strong style="font-size:15px">${statusCounts[s] ?? 0}</strong>
+            </div>`).join('')}
+        </div>
+        <div style="height:8px;background:var(--surface3);border-radius:4px;overflow:hidden;margin-top:12px;display:flex">
+          ${[['todo','var(--text3)'],['in_progress','var(--accent)'],['done','var(--green)'],['archived','var(--surface2)']].map(([s,c]) =>
+            `<div style="width:${Math.round(statusCounts[s]/totalAllTasks*100)}%;background:${c};transition:width .3s"></div>`
+          ).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  main.querySelectorAll('.period-tab').forEach(btn => {
+    btn.onclick = () => {
+      S.statsPeriod = parseInt(btn.dataset.period);
+      renderStatsView(main);
+    };
+  });
+}
+
+function renderProjectOverview(main) {
+  const isInbox = S.selectedProjectId === INBOX_ID;
+  const proj    = isInbox ? INBOX_PROJ : S.projects.find(p => p.id === S.selectedProjectId);
+  if (!proj) { renderDashboard(main); return; }
+
+  const allProjTasks = isInbox
+    ? S.tasks.filter(t => t.projectId === null || t.projectId === undefined)
+    : S.tasks.filter(t => t.projectId === proj.id);
+  const tasks        = allProjTasks.filter(t => t.status !== 'archived' && t.status !== 'done');
+  const completed    = allProjTasks.filter(t => t.status === 'done');
+  const archived     = allProjTasks.filter(t => t.status === 'archived');
+  const done         = completed.length;
+  const pct          = (tasks.length + done) > 0 ? Math.round(done / (tasks.length + done) * 100) : 0;
+
+  const taskCard = t => `
+    <div class="task-card status-${t.status}" data-tid="${t.id}">
+      <div class="task-card-top">
+        <span class="status-pill ${t.status}">${statusLabel(t.status)}</span>
+        ${t.priority > 0 ? `<span class="prio-pill p${t.priority}">${prioLabel(t.priority)}</span>` : ''}
+      </div>
+      <p class="task-card-title">${escHtml(t.title)}</p>
+      <div class="task-card-meta">
+        <span>🍅 ${t.completedPomodoros ?? 0}</span>
+        ${t.startDate ? `<span>▷ ${t.startDate}</span>` : ''}
+        ${t.dueDate   ? `<span>📅 ${t.dueDate}</span>` : ''}
+        ${(t.subtasks?.length ?? 0) > 0 ? `<span>${t.subtasks.filter(s=>s.status==='done').length}/${t.subtasks.length} ✓</span>` : ''}
+      </div>
+    </div>`;
+
+  const tabsHTML = `
+    <div class="period-tabs" style="margin-bottom:20px">
+      <button class="period-tab${S.projectTab==='tasks'?' active':''}" id="proj-tab-tasks">Tasks</button>
+      <button class="period-tab${S.projectTab==='warboard'?' active':''}" id="proj-tab-warboard">War Board</button>
+      <button class="period-tab${S.projectTab==='stats'?' active':''}" id="proj-tab-stats">Metrics</button>
+    </div>`;
+
+  const tasksHTML = `
+    <div class="tasks-grid">
+      ${tasks.map(taskCard).join('')}
+      ${tasks.length === 0 ? `
+        <div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text3)">
+          No tasks. Use the + button to create one.
+        </div>` : ''}
+    </div>
+    ${completed.length > 0 ? `
+      <div class="archived-toggle" id="toggle-completed">
+        <span>${S.showCompleted ? '▼' : '▶'}</span>
+        <span>Completed (${completed.length})</span>
+      </div>
+      ${S.showCompleted ? `<div class="tasks-grid">${completed.map(taskCard).join('')}</div>` : ''}
+    ` : ''}
+    ${archived.length > 0 ? `
+      <div class="archived-toggle" id="toggle-archived">
+        <span>${S.showArchived ? '▼' : '▶'}</span>
+        <span>Archived (${archived.length})</span>
+      </div>
+      ${S.showArchived ? `<div class="tasks-grid">${archived.map(taskCard).join('')}</div>` : ''}
+    ` : ''}`;
+
+  main.innerHTML = `
+    <div class="project-overview">
+      <div class="proj-overview-header">
+        <span class="proj-dot-lg" style="background:${proj.color}"></span>
+        <div>
+          <h2>${escHtml(proj.name)}</h2>
+          <p class="sub">${(() => {
+            let s = `${tasks.length} task${tasks.length !== 1 ? 's' : ''} &middot; ${done} completed`;
+            if (proj.pomodoroWeeklyBudget) {
+              const usedSecs   = weeklyFocusSecs(proj, allProjTasks);
+              const budgetSecs = proj.pomodoroWeeklyBudget * 3600;
+              const usedH = Math.floor(usedSecs / 3600), usedM = Math.floor((usedSecs % 3600) / 60);
+              const usedStr = usedH > 0 ? `${usedH}h ${usedM}m` : `${usedM}m`;
+              const pct = Math.min(100, Math.round(usedSecs / budgetSecs * 100));
+              const over = usedSecs > budgetSecs;
+              s += ` &middot; <span style="color:${over ? 'var(--red)' : 'var(--green)'}">${usedStr} / ${proj.pomodoroWeeklyBudget}h this week (${pct}%)</span>`;
+            }
+            return s;
+          })()}</p>
+        </div>
+        <div class="proj-actions">
+          ${!isInbox ? `
+            <button class="btn btn-ghost" id="btn-edit-proj">Edit</button>
+            <button class="btn btn-danger-ghost" id="btn-del-proj">Delete</button>
+          ` : ''}
+        </div>
+      </div>
+
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" style="width:${pct}%"></div>
+      </div>
+      <p class="progress-label">${pct}% completed</p>
+
+      ${tabsHTML}
+
+      <div id="proj-tab-body">
+        ${S.projectTab === 'tasks' ? tasksHTML
+          : S.projectTab === 'warboard' ? buildWarBoardHTML(allProjTasks)
+          : buildProjectStatsHTML(proj, allProjTasks)}
+      </div>
+    </div>`;
+
+  document.getElementById('btn-edit-proj')?.addEventListener('click', () => showEditProjectModal(proj));
+  document.getElementById('btn-del-proj')?.addEventListener('click',  () => handleDeleteProject(proj.id));
+  document.getElementById('proj-tab-tasks').onclick    = () => { S.projectTab = 'tasks';    renderProjectOverview(main); };
+  document.getElementById('proj-tab-warboard').onclick = () => { S.projectTab = 'warboard'; renderProjectOverview(main); };
+  document.getElementById('proj-tab-stats').onclick    = () => { S.projectTab = 'stats';    renderProjectOverview(main); };
+  if (S.projectTab === 'warboard') wireWarBoard(main, allProjTasks);
+  document.getElementById('toggle-completed')?.addEventListener('click', () => {
+    S.showCompleted = !S.showCompleted;
+    renderProjectOverview(main);
+  });
+  document.getElementById('toggle-archived')?.addEventListener('click', () => {
+    S.showArchived = !S.showArchived;
+    renderProjectOverview(main);
+  });
+  main.querySelectorAll('.task-card').forEach(el => {
+    el.onclick = () => {
+      S.selectedTaskId = el.dataset.tid;
+      renderApp();
+    };
+  });
+  // Task bar rows in stats tab → navigate to task
+  main.querySelectorAll('.proj-bar-row[data-tid]').forEach(el => {
+    el.onclick = () => {
+      S.selectedTaskId = el.dataset.tid;
+      renderApp();
+    };
+  });
+}
+
+function kanbanCardHTML(t) {
+  const prioColors = ['','p1','p2','p3'];
+  const prioNames  = ['','Low','Med','Urgent'];
+  return `
+    <div class="kanban-card" draggable="true" data-tid="${t.id}">
+      <div class="kanban-card-title">${escHtml(t.title)}</div>
+      <div class="kanban-card-meta">
+        ${t.important ? `<span class="kanban-card-important">⭐</span>` : ''}
+        🍅 ${t.completedPomodoros ?? 0}
+        ${t.priority > 0 ? `<span class="kanban-card-prio ${prioColors[t.priority]}">${prioNames[t.priority]}</span>` : ''}
+        ${t.dueDate ? `<span>📅 ${t.dueDate}</span>` : ''}
+        ${(t.subtasks?.length ?? 0) > 0 ? `<span>${t.subtasks.filter(s=>s.status==='done').length}/${t.subtasks.length} ✓</span>` : ''}
+      </div>
+    </div>`;
+}
+
+function buildWarBoardHTML(allProjTasks) {
+  const mode = S.warboardMode ?? 'kanban';
+  return `
+    <div class="warboard-toggle">
+      <button class="warboard-mode-btn${mode==='kanban'?' active':''}" id="wb-mode-kanban">Kanban</button>
+      <button class="warboard-mode-btn${mode==='matrix'?' active':''}" id="wb-mode-matrix">Matrix</button>
+    </div>
+    ${mode === 'kanban' ? buildKanbanHTML(allProjTasks) : buildMatrixHTML(allProjTasks)}`;
+}
+
+function buildKanbanHTML(allProjTasks) {
+  const COLS = [
+    { status: 'todo',        label: 'To do' },
+    { status: 'in_progress', label: 'In progress' },
+    { status: 'done',        label: 'Done' },
+  ];
+  return `<div class="kanban-board">${COLS.map(col => {
+    const cards = allProjTasks.filter(t => t.status === col.status);
+    return `
+    <div class="kanban-col" data-status="${col.status}">
+      <div class="kanban-col-header">
+        <span class="kanban-col-label">${col.label}</span>
+        <span class="kanban-col-count">${cards.length}</span>
+      </div>
+      ${cards.map(kanbanCardHTML).join('')}
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function buildMatrixHTML(allProjTasks) {
+  const QUADS = [
+    { id: 'q1', label: '🔴 Do First',  desc: 'Urgent + Important',      cls: 'matrix-q1', urgent: true,  important: true  },
+    { id: 'q2', label: '🔵 Schedule',  desc: 'Not urgent + Important',  cls: 'matrix-q2', urgent: false, important: true  },
+    { id: 'q3', label: '🟡 Delegate',  desc: 'Urgent + Not important',  cls: 'matrix-q3', urgent: true,  important: false },
+    { id: 'q4', label: '⚫ To decide', desc: 'Not urgent + Not import.', cls: 'matrix-q4', urgent: false, important: false },
+  ];
+  const isUrgent    = t => t.priority === 3;
+  const isImportant = t => t.important === true;
+  const active = allProjTasks.filter(t => t.status !== 'archived' && t.status !== 'done');
+  return `
+    <div class="matrix-axis-row">
+      <div class="matrix-axis-label">⚡ Urgent</div>
+      <div class="matrix-axis-label">— Not Urgent</div>
+    </div>
+    <div class="matrix-grid">
+      ${QUADS.map(q => {
+        const cards = active.filter(t => isUrgent(t) === q.urgent && isImportant(t) === q.important);
+        return `
+        <div class="matrix-quadrant ${q.cls}" data-quad="${q.id}">
+          <div class="matrix-q-header">
+            <div class="matrix-q-label">${q.label} <span class="matrix-q-count">${cards.length}</span></div>
+            <div class="matrix-q-desc">${q.desc}</div>
+          </div>
+          ${cards.map(t => `
+            <div class="kanban-card" draggable="true" data-tid="${t.id}">
+              <div class="kanban-card-title">${escHtml(t.title)}</div>
+              <div class="kanban-card-meta">
+                <span class="status-pill ${t.status}" style="font-size:10px;padding:1px 5px">${statusLabel(t.status)}</span>
+                🍅 ${t.completedPomodoros ?? 0}
+                ${t.dueDate ? `<span>📅 ${t.dueDate}</span>` : ''}
+              </div>
+            </div>`).join('')}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function wireWarBoard(container, allProjTasks) {
+  const main = document.getElementById('main');
+
+  // Mode toggle
+  document.getElementById('wb-mode-kanban')?.addEventListener('click', () => {
+    S.warboardMode = 'kanban'; renderProjectOverview(main);
+  });
+  document.getElementById('wb-mode-matrix')?.addEventListener('click', () => {
+    S.warboardMode = 'matrix'; renderProjectOverview(main);
+  });
+
+  let draggingId = null;
+
+  // Cards — click + drag
+  container.querySelectorAll('.kanban-card').forEach(card => {
+    card.addEventListener('click', () => {
+      S.selectedTaskId = card.dataset.tid;
+      renderApp();
+    });
+    card.addEventListener('dragstart', e => {
+      draggingId = card.dataset.tid;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      draggingId = null;
+    });
+  });
+
+  // Kanban columns
+  container.querySelectorAll('.kanban-col').forEach(col => {
+    col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave', e => { if (!col.contains(e.relatedTarget)) col.classList.remove('drag-over'); });
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      if (!draggingId) return;
+      const task = S.tasks.find(t => t.id === draggingId);
+      if (!task) return;
+      const newStatus = col.dataset.status;
+      if (task.status === newStatus) return;
+      task.status = newStatus;
+      if (newStatus === 'done' && !task.completedAt) task.completedAt = new Date().toISOString();
+      if (newStatus !== 'done') task.completedAt = null;
+      renderProjectOverview(main);
+      saveData();
+    });
+  });
+
+  // Matrix quadrants
+  const QUAD_DROPS = {
+    q1: { important: true,  urgent: true  },
+    q2: { important: true,  urgent: false },
+    q3: { important: false, urgent: true  },
+    q4: { important: false, urgent: false },
+  };
+  container.querySelectorAll('.matrix-quadrant').forEach(quad => {
+    quad.addEventListener('dragover', e => { e.preventDefault(); quad.classList.add('drag-over'); });
+    quad.addEventListener('dragleave', e => { if (!quad.contains(e.relatedTarget)) quad.classList.remove('drag-over'); });
+    quad.addEventListener('drop', e => {
+      e.preventDefault();
+      quad.classList.remove('drag-over');
+      if (!draggingId) return;
+      const task = S.tasks.find(t => t.id === draggingId);
+      if (!task) return;
+      const drop = QUAD_DROPS[quad.dataset.quad];
+      task.important = drop.important;
+      if (drop.urgent) {
+        task.priority = 3;
+      } else if (task.priority === 3) {
+        task.priority = 2;
+      }
+      renderProjectOverview(main);
+      saveData();
+    });
+  });
+}
+
+function weeklyFocusSecs(proj, allProjTasks) {
+  const taskIds = new Set(allProjTasks.map(t => t.id));
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  monday.setHours(0, 0, 0, 0);
+  return S.sessions
+    .filter(s => s.type === 'focus' && s.completed && taskIds.has(s.taskId) && new Date(s.startedAt) >= monday)
+    .reduce((a, s) => a + (s.durationSeconds ?? 0), 0);
+}
+
+function buildProjectStatsHTML(proj, allProjTasks) {
+  const dayStr = d => d.toISOString().slice(0, 10);
+
+  // Sessions for this project's tasks
+  const taskIds = new Set(allProjTasks.map(t => t.id));
+  const projSessions = S.sessions.filter(s => s.type === 'focus' && s.completed && taskIds.has(s.taskId));
+
+  // Total time: sessions + manual minutes
+  const sessSecs  = projSessions.reduce((a, s) => a + (s.durationSeconds ?? 0), 0);
+  const manualSecs = allProjTasks.reduce((a, t) => a + (t.manualMinutes ?? 0) * 60, 0);
+  const totalSecs  = sessSecs + manualSecs;
+  const totalH = Math.floor(totalSecs / 3600), totalM = Math.floor((totalSecs % 3600) / 60);
+  const timeStr = totalH > 0 ? `${totalH}h ${totalM}m` : `${totalM}m`;
+
+  // Status counts
+  const sc = { todo: 0, in_progress: 0, done: 0, archived: 0 };
+  for (const t of allProjTasks) sc[t.status] = (sc[t.status] ?? 0) + 1;
+  const totalAll = Math.max(1, Object.values(sc).reduce((a,b) => a+b, 0));
+
+  // Avg focus quality
+  const qualSess = projSessions.filter(s => s.focusQualityScore);
+  const avgQ = qualSess.length
+    ? (qualSess.reduce((a,s) => a + s.focusQualityScore, 0) / qualSess.length).toFixed(1)
+    : '—';
+
+  // Completion rate
+  const compRate = allProjTasks.length > 0 ? Math.round(sc.done / allProjTasks.length * 100) : 0;
+
+  // Time per task (top 8 by time)
+  const taskTimes = allProjTasks.map(t => {
+    const tSess = projSessions.filter(s => s.taskId === t.id).reduce((a,s) => a + (s.durationSeconds ?? 0), 0);
+    const tTotal = tSess + (t.manualMinutes ?? 0) * 60;
+    return { t, secs: tTotal };
+  }).filter(x => x.secs > 0).sort((a,b) => b.secs - a.secs).slice(0, 8);
+  const maxTaskSecs = Math.max(1, taskTimes[0]?.secs ?? 1);
+
+  const taskBarsHTML = taskTimes.length > 0 ? taskTimes.map(({ t, secs }) => {
+    const pct = Math.round(secs / maxTaskSecs * 100);
+    const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60);
+    const val = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    const statusDot = { done: 'var(--green)', in_progress: 'var(--accent)', todo: 'var(--text3)', archived: 'var(--text3)' }[t.status] ?? 'var(--text3)';
+    return `
+      <div class="proj-bar-row" style="cursor:pointer" data-tid="${t.id}">
+        <span class="proj-bar-name" title="${escHtml(t.title)}" style="display:flex;align-items:center;gap:6px">
+          <span style="width:7px;height:7px;border-radius:50%;background:${statusDot};flex-shrink:0"></span>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.title)}</span>
+        </span>
+        <div class="proj-bar-track">
+          <div class="proj-bar-fill" style="width:${pct}%;background:${proj.color}"></div>
+        </div>
+        <span class="proj-bar-val">${val}</span>
+      </div>`;
+  }).join('') : '<p class="empty-hint">No time recorded yet.</p>';
+
+  // Activity heatmap — last 12 weeks, scoped to this project
+  const WEEKS = 12, DAYS = WEEKS * 7;
+  const heatStart = new Date(); heatStart.setDate(heatStart.getDate() - DAYS + 1); heatStart.setHours(0,0,0,0);
+  const dayMap = {};
+  for (const s of projSessions) {
+    const k = dayStr(new Date(s.startedAt));
+    dayMap[k] = (dayMap[k] ?? 0) + (s.durationSeconds ?? 0);
+  }
+  for (const t of allProjTasks.filter(t => t.status === 'done' && t.manualMinutes)) {
+    const k = dayStr(new Date(t.modifiedAt));
+    dayMap[k] = (dayMap[k] ?? 0) + t.manualMinutes * 60;
+  }
+  const cells = [];
+  let prevMonth = -1;
+  for (let i = 0; i < DAYS; i++) {
+    const cd = new Date(heatStart); cd.setDate(cd.getDate() + i);
+    const k  = dayStr(cd);
+    const s  = dayMap[k] ?? 0;
+    const h  = s / 3600;
+    const level = h === 0 ? '' : h < 1 ? 'l1' : h < 2 ? 'l2' : h < 4 ? 'l3' : 'l4';
+    cells.push(`<div class="hm-cell ${level}" title="${k}: ${fmtMinutes(Math.round(s/60))}"></div>`);
+    prevMonth = cd.getMonth();
+  }
+
+  // Recent sessions (last 6)
+  const recentSess = [...projSessions].sort((a,b) => b.startedAt.localeCompare(a.startedAt)).slice(0, 6);
+  const recentHTML = recentSess.length > 0 ? recentSess.map(sess => {
+    const task = allProjTasks.find(t => t.id === sess.taskId);
+    const dur  = Math.round((sess.durationSeconds ?? 0) / 60);
+    const stars = sess.focusQualityScore
+      ? '★'.repeat(sess.focusQualityScore) + '☆'.repeat(5 - sess.focusQualityScore)
+      : '';
+    const date = sess.startedAt.slice(0, 10);
+    return `
+      <div class="session-log-item" style="flex-direction:column;align-items:flex-start;gap:2px;padding:8px 0">
+        <div style="display:flex;justify-content:space-between;width:100%">
+          <span style="font-size:12px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px">${escHtml(task?.title ?? '—')}</span>
+          <span style="font-size:12px;color:var(--text2);flex-shrink:0;margin-left:8px">${dur} min</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;width:100%">
+          <span style="font-size:11px;color:var(--text3)">${date}</span>
+          ${stars ? `<span style="color:var(--yellow);font-size:10px">${stars}</span>` : ''}
+        </div>
+      </div>`;
+  }).join('') : '<p class="empty-hint">No sessions yet.</p>';
+
+  return `
+    ${(() => {
+      if (!proj.pomodoroWeeklyBudget) return '';
+      const usedSecs   = weeklyFocusSecs(proj, allProjTasks);
+      const budgetSecs = proj.pomodoroWeeklyBudget * 3600;
+      const pct  = Math.min(100, Math.round(usedSecs / budgetSecs * 100));
+      const over = usedSecs > budgetSecs;
+      const usedH = Math.floor(usedSecs / 3600), usedM = Math.floor((usedSecs % 3600) / 60);
+      const usedStr = usedH > 0 ? `${usedH}h ${usedM}m` : `${usedM}m`;
+      return `
+        <div style="margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+            <span style="font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--text3);text-transform:uppercase">Weekly budget</span>
+            <span style="font-size:13px;color:${over ? 'var(--red)' : 'var(--text2)'}">
+              <strong style="color:${over ? 'var(--red)' : 'var(--text)'}">${usedStr}</strong> / ${proj.pomodoroWeeklyBudget}h
+              ${over ? '<span style="color:var(--red);font-size:11px;margin-left:4px">over budget</span>' : `<span style="color:var(--text3);font-size:11px;margin-left:4px">${pct}%</span>`}
+            </span>
+          </div>
+          <div style="height:8px;background:var(--surface3);border-radius:4px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${over ? 'var(--red)' : 'var(--green)'};border-radius:4px;transition:width .4s ease"></div>
+          </div>
+        </div>`;
+    })()}
+    <!-- Stat cards -->
+    <div class="stats-cards" style="margin-bottom:24px">
+      <div class="stat-card">
+        <span class="stat-card-icon">⏱</span>
+        <div class="stat-card-val">${totalSecs > 0 ? timeStr : '—'}</div>
+        <div class="stat-card-lbl">Focus time</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">✓</span>
+        <div class="stat-card-val">${sc.done}</div>
+        <div class="stat-card-lbl">Tasks done</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">%</span>
+        <div class="stat-card-val">${compRate}%</div>
+        <div class="stat-card-lbl">Completion</div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-card-icon">★</span>
+        <div class="stat-card-val">${avgQ}</div>
+        <div class="stat-card-lbl">Avg quality</div>
+      </div>
+    </div>
+
+    <!-- Task status breakdown -->
+    <div class="stats-section">
+      <p class="stats-section-title">Task breakdown</p>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px">
+        ${[['todo','To do','var(--text3)'],['in_progress','In progress','var(--accent)'],['done','Completed','var(--green)'],['archived','Archived','var(--surface3)']].map(([s,l,c]) => `
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:9px;height:9px;border-radius:50%;background:${c}"></div>
+            <span style="font-size:13px;color:var(--text2)">${l}</span>
+            <strong style="font-size:14px">${sc[s] ?? 0}</strong>
+          </div>`).join('')}
+      </div>
+      <div style="height:8px;background:var(--surface3);border-radius:4px;overflow:hidden;display:flex">
+        ${[['todo','var(--text3)'],['in_progress','var(--accent)'],['done','var(--green)'],['archived','var(--surface2)']].map(([s,c]) =>
+          `<div style="width:${Math.round((sc[s]??0)/totalAll*100)}%;background:${c};transition:width .3s"></div>`
+        ).join('')}
+      </div>
+    </div>
+
+    <div class="stats-two-col">
+      <!-- Time per task -->
+      <div class="stats-section">
+        <p class="stats-section-title">Time by task</p>
+        ${taskBarsHTML}
+      </div>
+
+      <!-- Recent sessions -->
+      <div class="stats-section">
+        <p class="stats-section-title">Recent sessions</p>
+        <div style="border-top:1px solid var(--border)">
+          ${recentHTML}
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity heatmap -->
+    <div class="stats-section">
+      <p class="stats-section-title">Activity — last ${WEEKS} weeks</p>
+      <div class="heatmap-wrap">
+        <div class="heatmap">${cells.join('')}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:11px;color:var(--text3)">
+        Less
+        <div class="hm-cell"></div>
+        <div class="hm-cell l1"></div>
+        <div class="hm-cell l2"></div>
+        <div class="hm-cell l3"></div>
+        <div class="hm-cell l4"></div>
+        More
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI — TASK DETAIL
+═══════════════════════════════════════════════════════════ */
+function renderTaskDetail(main, task) {
+  const proj = S.projects.find(p => p.id === task.projectId);
+
+  main.innerHTML = `
+    <!-- Task detail -->
+    <div class="task-detail-wrap">
+      <div class="task-breadcrumb">
+        ${proj ? `<span class="bc-dot" style="background:${proj.color}"></span><span>${escHtml(proj.name)}</span><span>&rsaquo;</span>` : ''}
+        <span>${escHtml(task.title)}</span>
+      </div>
+
+      <!-- Status + actions row -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="status-btns">
+          ${[['todo','To do'],['in_progress','In progress'],['done','Completed'],['archived','Archived']].map(([s,l]) =>
+            `<button class="status-btn${task.status===s?' active':''}" data-s="${s}">${l}</button>`
+          ).join('')}
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-ghost btn-sm" id="btn-save-task">Save</button>
+        <button class="btn btn-danger-ghost btn-sm" id="btn-del-task">Delete</button>
+      </div>
+
+      <!-- Title -->
+      <textarea
+        id="task-title-edit"
+        class="task-title-edit"
+        rows="2"
+        maxlength="200"
+      >${escHtml(task.title)}</textarea>
+
+      <!-- Meta grid -->
+      <div class="task-meta-grid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="meta-field">
+          <label>Priority</label>
+          <select id="task-priority">
+            <option value="0" ${task.priority===0?'selected':''}>No priority</option>
+            <option value="1" ${task.priority===1?'selected':''}>Low</option>
+            <option value="2" ${task.priority===2?'selected':''}>Medium</option>
+            <option value="3" ${task.priority===3?'selected':''}>Urgent</option>
+          </select>
+        </div>
+        <div class="meta-field" style="grid-column:1/-1">
+          <label>Manual time (min)</label>
+          <input type="number" id="task-manual-mins" value="${task.manualMinutes ?? ''}" min="0" max="9999" placeholder="No manual record">
+        </div>
+        <div class="meta-field">
+          <label>Start date</label>
+          <input type="date" id="task-start" value="${task.startDate ?? new Date().toISOString().slice(0,10)}">
+        </div>
+        <div class="meta-field">
+          <label>Due date</label>
+          <input type="date" id="task-due" value="${task.dueDate ?? new Date().toISOString().slice(0,10)}">
+        </div>
+        <div class="meta-field" style="grid-column:1/-1">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding-top:4px">
+            <input type="checkbox" id="task-important" ${task.important ? 'checked' : ''} style="width:15px;height:15px;cursor:pointer">
+            <span>Important <span style="color:var(--text2);font-size:12px">(Eisenhower matrix)</span></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Pomodoro dots -->
+      <div class="pomo-track">
+        <label>Pomodoro progress</label>
+        <div class="pomo-dots" id="pomo-dots">${buildPomoDots(task)}</div>
+        <p class="text2" id="pomo-count" style="font-size:12px;margin-top:4px">
+          ${task.completedPomodoros ?? 0} completed
+        </p>
+      </div>
+
+      <!-- Notes -->
+      <div class="notes-section">
+        <label>Notes</label>
+        <textarea id="task-notes" placeholder="Notes, context, references…">${escHtml(task.notes ?? '')}</textarea>
+      </div>
+
+      <!-- Subtasks -->
+      <div class="subtasks-section" style="display:none">
+        <div class="sh">
+          <label>Subtasks</label>
+          <button class="btn btn-ghost btn-sm" id="btn-add-subtask">+ Add</button>
+        </div>
+        <div id="subtasks-list">
+          ${(task.subtasks ?? []).map(st => `
+            <div class="subtask-item">
+              <input type="checkbox" class="st-check" data-stid="${st.id}" ${st.status==='done'?'checked':''}>
+              <span class="subtask-title${st.status==='done'?' done':''}">${escHtml(st.title)}</span>
+              <button class="btn btn-ghost btn-icon st-del" data-stid="${st.id}" style="font-size:16px;color:var(--text3)">×</button>
+            </div>`).join('')}
+          ${(task.subtasks?.length ?? 0) === 0 ? '<p class="empty-hint">No subtasks</p>' : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- Pomodoro Timer Panel -->
+    <div class="timer-panel collapsed" id="timer-panel">
+      <div class="timer-panel-toggle" id="timer-panel-toggle">
+        <span>🍅 Pomodoro${S.pomState !== 'idle' ? ' · active' : ''}</span>
+        <span class="toggle-arrow">▼</span>
+      </div>
+      <div class="timer-panel-body">
+        ${buildTimerHTML(task)}
+      </div>
+    </div>`;
+
+  // ── Task events ──
+  main.querySelectorAll('.status-btn').forEach(btn => {
+    btn.onclick = async () => {
+      task.status = btn.dataset.s;
+      await saveTask(task);
+      main.querySelectorAll('.status-btn').forEach(b => b.classList.toggle('active', b.dataset.s === task.status));
+      renderSidebar();
+    };
+  });
+
+  document.getElementById('btn-save-task').onclick = () => saveTaskFromForm(task);
+  document.getElementById('btn-del-task').onclick  = () => handleDeleteTask(task.id);
+  document.getElementById('task-start')?.addEventListener('change', e => {
+    const due = document.getElementById('task-due');
+    if (due && (!due.value || due.value <= e.target.value)) due.value = e.target.value;
+  });
+  const btnAddSt = document.getElementById('btn-add-subtask');
+  if (btnAddSt) btnAddSt.onclick = () => showAddSubtaskModal(task);
+
+  main.querySelectorAll('.st-check').forEach(cb => {
+    cb.onchange = async e => {
+      const st = task.subtasks.find(s => s.id === e.target.dataset.stid);
+      if (st) { st.status = e.target.checked ? 'done' : 'todo'; await saveTask(task); renderTaskDetail(main, task); }
+    };
+  });
+
+  main.querySelectorAll('.st-del').forEach(btn => {
+    btn.onclick = async e => {
+      task.subtasks = task.subtasks.filter(s => s.id !== e.target.dataset.stid);
+      await saveTask(task);
+      renderTaskDetail(main, task);
+    };
+  });
+
+  attachTimerEvents(task);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI — TIMER
+═══════════════════════════════════════════════════════════ */
+function buildTimerHTML(task) {
+  const isIdle   = S.pomState === 'idle';
+  const isPaused = S.pomState === 'paused';
+  const isBreak  = S.pomState === 'short_break' || S.pomState === 'long_break';
+  const isFocus  = S.pomState === 'focus';
+
+  const phaseLabels = {
+    idle:        'Ready',
+    focus:       'Focus',
+    short_break: 'Short break',
+    long_break:  'Long break',
+    paused:      'Paused',
+  };
+
+  const timerClass = isBreak ? 'break' : isIdle ? 'idle' : '';
+
+  const taskSessions = S.sessions.filter(s => s.taskId === task.id && s.completed).slice(-5).reverse();
+
+  return `
+    <div class="timer-phase-label">${phaseLabels[S.pomState] ?? S.pomState}</div>
+    <div class="timer-display ${timerClass}">${fmtTime(S.pomSeconds)}</div>
+
+    <div class="timer-controls">
+      ${isIdle ? `
+        <button class="btn btn-primary" id="btn-pom-start">▶ Start</button>
+      ` : isPaused ? `
+        <button class="btn btn-primary" id="btn-pom-start">▶ Resume</button>
+        <button class="btn btn-secondary" id="btn-pom-skip">⏭ Skip</button>
+      ` : `
+        <button class="btn btn-secondary" id="btn-pom-pause">⏸ Pause</button>
+        <button class="btn btn-secondary" id="btn-pom-skip">⏭ Skip</button>
+      `}
+    </div>
+
+    <p class="timer-session-info">
+      ${isIdle
+        ? `${task.completedPomodoros ?? 0} session${(task.completedPomodoros ?? 0) !== 1 ? 's' : ''} completed`
+        : `Session ${S.pomCount + (isFocus ? 1 : 0)} · ${effectivePomCfg().streakLength - (S.pomCount % effectivePomCfg().streakLength)} until long break`}
+    </p>
+
+    <div class="timer-sep"></div>
+
+    ${isIdle ? `
+      <button class="btn btn-ghost btn-full" id="btn-cfg-toggle" style="font-size:12px;color:var(--text3);justify-content:space-between">
+        <span>Adjust session</span><span id="cfg-arrow">▼</span>
+      </button>
+      <div id="timer-cfg-panel" style="display:none;margin-top:10px">
+        <div class="timer-cfg">
+          <div class="timer-cfg-row">
+            <label>Focus (min)</label>
+            <input type="number" id="cfg-focus" value="${effectivePomCfg().focus}" min="1" max="90">
+          </div>
+          <div class="timer-cfg-row">
+            <label>Short break</label>
+            <input type="number" id="cfg-short" value="${effectivePomCfg().shortBreak}" min="1" max="30">
+          </div>
+          <div class="timer-cfg-row">
+            <label>Long break</label>
+            <input type="number" id="cfg-long" value="${effectivePomCfg().longBreak}" min="1" max="60">
+          </div>
+          <div class="timer-cfg-row">
+            <label>Streak</label>
+            <input type="number" id="cfg-streak" value="${effectivePomCfg().streakLength}" min="2" max="10">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" id="btn-cfg-save" style="margin-top:10px;font-size:12px">Save for this task</button>
+      </div>
+    ` : ''}
+
+    ${taskSessions.length > 0 ? `
+      <div class="timer-sessions-log">
+        <label>Recent sessions</label>
+        ${taskSessions.map(sess => {
+          const stars = sess.focusQualityScore
+            ? '<span class="session-quality">' + '★'.repeat(sess.focusQualityScore) + '☆'.repeat(5 - sess.focusQualityScore) + '</span>'
+            : '';
+          const dur = Math.round(sess.durationSeconds / 60);
+          return `<div class="session-log-item"><span>${dur} min</span>${stars}</div>`;
+        }).join('')}
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderTimer() {
+  const panel = document.getElementById('timer-panel');
+  if (!panel) return;
+  const task = S.tasks.find(t => t.id === S.selectedTaskId);
+  if (!task) return;
+  const isCollapsed = panel.classList.contains('collapsed');
+  const body = panel.querySelector('.timer-panel-body');
+  if (body) {
+    body.innerHTML = buildTimerHTML(task);
+  } else {
+    panel.innerHTML = buildTimerHTML(task);
+  }
+  // Update toggle label
+  const lbl = panel.querySelector('.timer-panel-toggle span:first-child');
+  if (lbl) lbl.textContent = `🍅 Pomodoro${S.pomState !== 'idle' ? ' · active' : ''}`;
+  attachTimerEvents(task);
+}
+
+function attachTimerEvents(task) {
+  document.getElementById('timer-panel-toggle')?.addEventListener('click', () => {
+    document.getElementById('timer-panel')?.classList.toggle('collapsed');
+  });
+
+  document.getElementById('btn-pom-start')?.addEventListener('click', () => {
+    // If running for a different task, ask
+    if (S.pomState !== 'idle' && S.pomState !== 'paused' && S.pomCurrentSession?.taskId !== task.id) {
+      if (!confirm('There is an active timer for another task. Stop it and start here?')) return;
+      stopPomodoro();
+    }
+    S.selectedTaskId = task.id;
+    startPomodoro(task.id);
+  });
+
+  document.getElementById('btn-pom-pause')?.addEventListener('click', pausePomodoro);
+  document.getElementById('btn-pom-skip')?.addEventListener('click', () => skipPomodoro(task.id));
+
+  document.getElementById('btn-cfg-toggle')?.addEventListener('click', () => {
+    const panel = document.getElementById('timer-cfg-panel');
+    const arrow = document.getElementById('cfg-arrow');
+    if (!panel) return;
+    const open = panel.style.display === 'none';
+    panel.style.display = open ? 'block' : 'none';
+    if (arrow) arrow.textContent = open ? '▲' : '▼';
+  });
+
+  document.getElementById('btn-cfg-save')?.addEventListener('click', async () => {
+    if (!task) return;
+    task.pomCfg = {
+      focus:        Math.max(1, parseInt(document.getElementById('cfg-focus')?.value)  || 25),
+      shortBreak:   Math.max(1, parseInt(document.getElementById('cfg-short')?.value)  || 5),
+      longBreak:    Math.max(1, parseInt(document.getElementById('cfg-long')?.value)   || 15),
+      streakLength: Math.max(2, parseInt(document.getElementById('cfg-streak')?.value) || 4),
+    };
+    if (S.pomState === 'idle') S.pomSeconds = task.pomCfg.focus * 60;
+    await saveTask(task);
+    toast('Saved for this task', 'success');
+    renderTimer();
+  });
+}
+
+async function saveTaskFromForm(task) {
+  const title = document.getElementById('task-title-edit')?.value?.trim();
+  if (!title) { toast('Title cannot be empty', 'error'); return; }
+
+  task.title              = title;
+  task.notes              = document.getElementById('task-notes')?.value ?? '';
+  task.priority           = parseInt(document.getElementById('task-priority')?.value ?? '0');
+  task.important          = document.getElementById('task-important')?.checked ?? false;
+  task.startDate          = document.getElementById('task-start')?.value || null;
+  task.dueDate            = document.getElementById('task-due')?.value || null;
+  const manualVal = parseInt(document.getElementById('task-manual-mins')?.value ?? '');
+  task.manualMinutes      = manualVal > 0 ? manualVal : null;
+
+  await saveTask(task);
+  renderSidebar();
+  toast('Task saved', 'success');
+}
+
+async function handleDeleteTask(id) {
+  if (!confirm('Delete this task? This cannot be undone.')) return;
+  await deleteTask(id);
+  S.selectedTaskId = null;
+  if (S.pomCurrentSession?.taskId === id) stopPomodoro();
+  renderApp();
+  toast('Task deleted', 'info');
+}
+
+async function handleDeleteProject(id) {
+  if (!confirm('Delete this project and all its tasks? This cannot be undone.')) return;
+  await deleteProject(id);
+  S.selectedProjectId = null;
+  S.selectedTaskId = null;
+  stopPomodoro();
+  renderApp();
+  toast('Project deleted', 'info');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UI — MODALS
+═══════════════════════════════════════════════════════════ */
+function showModal(html) {
+  const overlay = document.getElementById('modal-overlay');
+  document.getElementById('modal-box').innerHTML = html;
+  overlay.classList.remove('hidden');
+
+  const close = e => {
+    if (e.target === overlay) closeModal();
+    overlay.removeEventListener('click', close);
+  };
+  overlay.addEventListener('click', close);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+function showNewProjectModal() {
+  showModal(`
+    <h3>New Project</h3>
+    <div class="input-group">
+      <label>Name</label>
+      <input id="m-proj-name" type="text" placeholder="My project" autofocus maxlength="80">
+    </div>
+    <div class="input-group">
+      <label>Color</label>
+      <div class="color-picker">
+        ${COLORS.map((c, i) => `<div class="color-swatch${i===0?' selected':''}" data-c="${c}" style="background:${c}"></div>`).join('')}
+      </div>
+    </div>
+    <div class="input-group">
+      <label>Weekly Pomodoro budget (hours, optional)</label>
+      <input id="m-proj-budget" type="number" placeholder="e.g. 10" min="0" max="168">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="m-create-proj">Create</button>
+    </div>
+  `);
+
+  let color = COLORS[0];
+  document.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.onclick = () => {
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+      sw.classList.add('selected');
+      color = sw.dataset.c;
+    };
+  });
+
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('m-create-proj').onclick = async () => {
+    const name = document.getElementById('m-proj-name').value.trim();
+    if (!name) { toast('Enter a name', 'error'); return; }
+
+    const budget = document.getElementById('m-proj-budget').value;
+    const proj = {
+      id: uid(), name, color,
+      pomodoroWeeklyBudget: budget ? parseInt(budget) : null,
+      taskOrder: [], archivedAt: null, modifiedAt: iso(),
+    };
+    await saveProject(proj);
+    S.selectedProjectId = proj.id;
+    closeModal();
+    renderApp();
+    toast('Project created', 'success');
+  };
+  document.getElementById('m-proj-name').onkeydown = e => {
+    if (e.key === 'Enter') document.getElementById('m-create-proj').click();
+  };
+}
+
+function showEditProjectModal(proj) {
+  showModal(`
+    <h3>Edit Project</h3>
+    <div class="input-group">
+      <label>Name</label>
+      <input id="m-proj-name" type="text" value="${escHtml(proj.name)}" autofocus maxlength="80">
+    </div>
+    <div class="input-group">
+      <label>Weekly Pomodoro budget (hours)</label>
+      <input id="m-proj-budget" type="number" value="${proj.pomodoroWeeklyBudget ?? ''}" placeholder="Optional" min="0" max="168">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="m-save-proj">Save</button>
+    </div>
+  `);
+
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('m-save-proj').onclick = async () => {
+    const name = document.getElementById('m-proj-name').value.trim();
+    if (!name) { toast('Enter a name', 'error'); return; }
+    const budget = document.getElementById('m-proj-budget').value;
+    proj.name = name;
+    proj.pomodoroWeeklyBudget = budget ? parseInt(budget) : null;
+    await saveProject(proj);
+    closeModal();
+    renderApp();
+    toast('Project updated', 'success');
+  };
+}
+
+function showNewTaskModal() {
+  const projectOptions = S.projects
+    .filter(p => !p.archivedAt)
+    .map(p => `<option value="${p.id}"${p.id === S.selectedProjectId ? ' selected' : ''}>${escHtml(p.name)}</option>`)
+    .join('');
+
+  showModal(`
+    <h3>New Task</h3>
+    <div class="input-group">
+      <label>Title</label>
+      <input id="m-task-title" type="text" placeholder="What needs to be done?" autofocus maxlength="200">
+    </div>
+    <div class="input-group">
+      <label>Project</label>
+      <select id="m-task-proj">
+        <option value=""${!S.selectedProjectId || S.selectedProjectId === INBOX_ID ? ' selected' : ''}>Tasks (no project)</option>
+        ${projectOptions}
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="input-group">
+        <label>Priority</label>
+        <select id="m-task-prio">
+          <option value="0">No priority</option>
+          <option value="1">Low</option>
+          <option value="2">Medium</option>
+          <option value="3">Urgent</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="input-group">
+        <label>Start date</label>
+        <input id="m-task-start" type="date" value="${new Date().toISOString().slice(0,10)}">
+      </div>
+      <div class="input-group">
+        <label>Due date</label>
+        <input id="m-task-due" type="date" value="${new Date().toISOString().slice(0,10)}">
+      </div>
+    </div>
+    <div class="input-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="m-task-important" style="width:15px;height:15px;cursor:pointer">
+        <span>Mark as important <span style="color:var(--text2);font-size:12px">(Eisenhower matrix)</span></span>
+      </label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="m-create-task">Create</button>
+    </div>
+  `);
+
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('m-task-start').addEventListener('change', e => {
+    const due = document.getElementById('m-task-due');
+    if (due && (!due.value || due.value <= e.target.value)) due.value = e.target.value;
+  });
+  document.getElementById('m-create-task').onclick = async () => {
+    const title = document.getElementById('m-task-title').value.trim();
+    if (!title) { toast('Enter a title', 'error'); return; }
+    const projId = document.getElementById('m-task-proj').value || null;
+
+    const task = {
+      id: uid(),
+      projectId: projId,
+      title,
+      notes: '',
+      status: 'todo',
+      priority: parseInt(document.getElementById('m-task-prio').value),
+      completedPomodoros: 0,
+      startDate: document.getElementById('m-task-start').value || null,
+      dueDate: document.getElementById('m-task-due').value || null,
+      important: document.getElementById('m-task-important')?.checked ?? false,
+      tags: [],
+      subtasks: [],
+      createdAt: iso(),
+      modifiedAt: iso(),
+    };
+    await saveTask(task);
+    S.selectedTaskId = task.id;
+    S.selectedProjectId = projId || INBOX_ID;
+    S.view = 'project';
+    closeModal();
+    renderApp();
+    toast('Task created', 'success');
+  };
+  document.getElementById('m-task-title').onkeydown = e => {
+    if (e.key === 'Enter') document.getElementById('m-create-task').click();
+  };
+}
+
+function showAddSubtaskModal(task) {
+  showModal(`
+    <h3>New Subtask</h3>
+    <div class="input-group">
+      <label>Description</label>
+      <input id="m-st-title" type="text" placeholder="Subtask description" autofocus maxlength="200">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="m-cancel">Cancel</button>
+      <button class="btn btn-primary" id="m-create-st">Add</button>
+    </div>
+  `);
+
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('m-create-st').onclick = async () => {
+    const title = document.getElementById('m-st-title').value.trim();
+    if (!title) return;
+    if (!task.subtasks) task.subtasks = [];
+    task.subtasks.push({ id: uid(), title, status: 'todo', modifiedAt: iso() });
+    await saveTask(task);
+    closeModal();
+    const main = document.getElementById('main');
+    renderTaskDetail(main, task);
+    toast('Subtask added', 'success');
+  };
+  document.getElementById('m-st-title').onkeydown = e => {
+    if (e.key === 'Enter') document.getElementById('m-create-st').click();
+  };
+}
+
+function showQualityScoreModal(sessionId) {
+  showModal(`
+    <h3>How was your focus?</h3>
+    <p class="text2" style="font-size:13px">Rate the quality of your focus session.</p>
+    <div class="quality-grid">
+      ${[1,2,3,4,5].map(n => `
+        <button class="quality-btn" data-score="${n}">${n}</button>
+      `).join('')}
+    </div>
+    <p class="quality-label">1 = very hard to focus &nbsp;·&nbsp; 5 = total flow</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="m-skip-quality">Skip</button>
+    </div>
+  `);
+
+  document.getElementById('m-skip-quality').onclick = closeModal;
+  document.querySelectorAll('.quality-btn').forEach(btn => {
+    btn.onclick = async () => {
+      const score = parseInt(btn.dataset.score);
+      // Update the stored session
+      const raw = JSON.parse(localStorage.getItem(SK.SESSIONS) ?? '[]');
+      const recIdx = raw.findIndex(r => r.id === sessionId);
+      if (recIdx >= 0) {
+        // We need to decrypt, update, re-encrypt
+        try {
+          const sess = await decryptData(raw[recIdx].enc);
+          sess.focusQualityScore = score;
+          raw[recIdx].enc = await encryptData(sess);
+          localStorage.setItem(SK.SESSIONS, JSON.stringify(raw));
+          const si = S.sessions.findIndex(s => s.id === sessionId);
+          if (si >= 0) S.sessions[si].focusQualityScore = score;
+        } catch { /* ignore */ }
+      }
+      closeModal();
+      renderTimer(); // refresh sessions log
+    };
+  });
+}
+
+function showSettingsModal() {
+  const rawTasks    = JSON.parse(localStorage.getItem(SK.TASKS)    ?? '[]');
+  const rawProjects = JSON.parse(localStorage.getItem(SK.PROJECTS) ?? '[]');
+  const rawSessions = JSON.parse(localStorage.getItem(SK.SESSIONS) ?? '[]');
+
+  const totalFocus = S.sessions
+    .filter(s => s.type === 'focus' && s.completed)
+    .reduce((a, s) => a + (s.durationSeconds ?? 0), 0);
+  const focusHrs = Math.round(totalFocus / 36) / 100;
+
+  showModal(`
+    <h3>Settings &amp; Data</h3>
+
+    <div style="background:var(--surface2);border-radius:var(--radius);padding:14px;font-size:13px;line-height:1.8">
+      <div style="display:flex;justify-content:space-between"><span class="text2">Projects</span><strong>${rawProjects.length}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span class="text2">Tasks</span><strong>${rawTasks.length}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span class="text2">Pomodoro sessions</span><strong>${rawSessions.length}</strong></div>
+      <div style="display:flex;justify-content:space-between"><span class="text2">Focus hours</span><strong>${focusHrs}h</strong></div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);padding-top:16px">
+      <p style="font-size:11px;font-weight:600;letter-spacing:.6px;color:var(--text3);text-transform:uppercase;margin-bottom:12px">Default Pomodoro</p>
+      <div class="timer-cfg">
+        <div class="timer-cfg-row">
+          <label>Focus (min)</label>
+          <input type="number" id="s-cfg-focus" value="${S.pomCfg.focus}" min="1" max="90">
+        </div>
+        <div class="timer-cfg-row">
+          <label>Short break (min)</label>
+          <input type="number" id="s-cfg-short" value="${S.pomCfg.shortBreak}" min="1" max="30">
+        </div>
+        <div class="timer-cfg-row">
+          <label>Long break (min)</label>
+          <input type="number" id="s-cfg-long" value="${S.pomCfg.longBreak}" min="1" max="60">
+        </div>
+        <div class="timer-cfg-row">
+          <label>Streak (cycles)</label>
+          <input type="number" id="s-cfg-streak" value="${S.pomCfg.streakLength}" min="2" max="10">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="m-save-pom" style="margin-top:12px">Save Pomodoro</button>
+    </div>
+
+    <p class="text2" style="font-size:12px">
+      Data encrypted with AES-256-GCM. The key never leaves your device.
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-danger btn-full" id="m-clear-all">Delete all data</button>
+      <button class="btn btn-ghost btn-full" id="m-cancel">Close</button>
+    </div>
+  `);
+
+  document.getElementById('m-cancel').onclick = closeModal;
+  document.getElementById('m-save-pom').onclick = () => {
+    S.pomCfg.focus        = Math.max(1, parseInt(document.getElementById('s-cfg-focus').value)  || 25);
+    S.pomCfg.shortBreak   = Math.max(1, parseInt(document.getElementById('s-cfg-short').value)  || 5);
+    S.pomCfg.longBreak    = Math.max(1, parseInt(document.getElementById('s-cfg-long').value)   || 15);
+    S.pomCfg.streakLength = Math.max(2, parseInt(document.getElementById('s-cfg-streak').value) || 4);
+    if (S.pomState === 'idle') S.pomSeconds = S.pomCfg.focus * 60;
+    localStorage.setItem(SK.POM_CFG, JSON.stringify(S.pomCfg));
+    toast('Pomodoro settings saved', 'success');
+    closeModal();
+  };
+  document.getElementById('m-clear-all').onclick = () => {
+    if (!confirm('Delete ALL data? This cannot be undone.')) return;
+    if (!confirm('Are you sure? All projects, tasks and sessions will be erased.')) return;
+    [SK.TASKS, SK.PROJECTS, SK.SESSIONS].forEach(k => localStorage.removeItem(k));
+    closeModal();
+    zeroise();
+    toast('All data deleted', 'info');
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+// Esc closes modal
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+// Mobile sidebar events
+document.getElementById('mobile-hamburger').onclick = openSidebar;
+document.getElementById('sidebar-overlay').onclick  = closeSidebar;
+
+// Boot
+R1DO.initCredDB().then(() => showAuthScreen());
+</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</body>
+</html>
+

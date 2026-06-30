@@ -1,0 +1,3853 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>R1DO Notes</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, sans-serif;
+                height: 100vh;
+                overflow: hidden;
+                background: #f5f5f5;
+            }
+
+            .container {
+                display: flex;
+                height: 100vh;
+            }
+
+            .sidebar {
+                width: 320px;
+                background: #ffffff;
+                border-right: 1px solid #e0e0e0;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                flex-shrink: 0;
+            }
+
+            .sidebar-header {
+                padding: 0;
+                border-bottom: 1px solid #e0e0e0;
+                flex: 0 0 auto;
+            }
+
+            .header-top {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 11px 11px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+
+            .app-title {
+                font-size: 20px;
+                font-weight: 600;
+                color: #1a1a1a;
+                margin: 0;
+            }
+
+            .contacts-icon {
+                font-size: 27px;
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 8px;
+                border-radius: 50%;
+                transition: background 0.2s ease;
+                line-height: 1;
+            }
+
+            .contacts-icon:hover {
+                background: #f7fafc;
+            }
+
+            .contacts-icon:active {
+                animation: iconBounce 0.3s ease;
+            }
+
+            @keyframes iconBounce {
+                0%,
+                100% {
+                    transform: translateY(0);
+                }
+                50% {
+                    transform: translateY(-3px);
+                }
+            }
+
+            .auth-section {
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .auth-section input {
+                padding: 10px 12px;
+                border: 1px solid #d0d0d0;
+                border-radius: 6px;
+                font-size: 14px;
+                transition: border-color 0.2s;
+            }
+
+            .auth-section input:focus {
+                outline: none;
+                border-color: #4a5568;
+            }
+
+            .auth-section button {
+                padding: 10px 12px;
+                background: #2d3748;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .auth-section button:hover {
+                background: #1a202c;
+            }
+
+            .auth-section button:disabled {
+                background: #cbd5e0;
+                cursor: not-allowed;
+            }
+
+            .user-section {
+                padding: 17px 11px 17px;
+                text-align: center;
+            }
+
+            .user-name-display {
+                font-size: 18px;
+                font-weight: 500;
+                color: #2d3748;
+                padding: 5px;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: background 0.2s ease;
+                user-select: none;
+                display: inline-block;
+                min-width: 150px;
+            }
+
+            .user-name-display:hover {
+                background: #f7fafc;
+            }
+
+            .user-name-display.copied {
+                background: #d4edda;
+                animation: pulse 0.3s ease;
+            }
+
+            @keyframes pulse {
+                0%,
+                100% {
+                    transform: scale(1);
+                }
+                50% {
+                    transform: scale(1.02);
+                }
+            }
+
+            .user-hint {
+                font-size: 11px;
+                color: #a0aec0;
+                margin-top: 4px;
+                font-style: italic;
+            }
+
+            .user-actions {
+                display: flex;
+                gap: 12px;
+                justify-content: center;
+                margin-top: 16px;
+            }
+
+            .action-btn {
+                padding: 8px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.2s;
+            }
+
+            .logout-btn {
+                background: #e53e3e;
+                color: white;
+            }
+
+            .logout-btn:hover {
+                background: #c53030;
+            }
+
+            .settings-btn {
+                background: #64748b;
+                color: white;
+            }
+
+            .settings-btn:hover {
+                background: #475569;
+            }
+
+            .user-item-btn {
+                padding: 8px 12px;
+                background: #f7fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 4px;
+                text-align: left;
+                cursor: pointer;
+                font-size: 13px;
+                color: #2d3748;
+                transition: all 0.2s;
+            }
+
+            .user-item-btn:hover {
+                background: #edf2f7;
+                border-color: #cbd5e0;
+            }
+
+            .sidebar-footer {
+                padding: 16px;
+                border-top: 1px solid #e0e0e0;
+                background: #ffffff;
+                flex: 0 0 auto;
+            }
+
+            .sidebar-footer button:hover {
+                background: #2d3748 !important;
+            }
+
+            .notes-section {
+                flex: 1;
+                overflow-y: auto;
+                padding: 16px;
+                min-height: 0;
+            }
+
+            .notes-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+            }
+
+            .notes-title {
+                font-size: 14px;
+                font-weight: 600;
+                color: #4a5568;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .new-note-btn {
+                padding: 6px 12px;
+                background: #2d3748;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
+                font-weight: 500;
+            }
+
+            .new-note-btn:hover {
+                background: #1a202c;
+            }
+
+            .notes-list {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .note-item {
+                padding: 12px;
+                background: #f7fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .note-item:hover {
+                background: #edf2f7;
+                border-color: #cbd5e0;
+            }
+
+            .note-item.active {
+                background: #2d3748;
+                border-color: #2d3748;
+            }
+
+            .note-item.active .note-title,
+            .note-item.active .note-preview,
+            .note-item.active .note-date {
+                color: white;
+            }
+
+            .note-title {
+                font-size: 14px;
+                font-weight: 500;
+                color: #2d3748;
+                margin-bottom: 4px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .note-preview {
+                font-size: 12px;
+                color: #718096;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                margin-bottom: 6px;
+            }
+
+            .note-date {
+                font-size: 11px;
+                color: #a0aec0;
+            }
+
+            .empty-notes {
+                text-align: center;
+                padding: 40px 20px;
+                color: #a0aec0;
+                font-size: 13px;
+            }
+
+            .sidebar-footer {
+                padding: 16px;
+                border-top: 1px solid #e0e0e0;
+                display: flex;
+                gap: 8px;
+                flex: 0 0 auto;
+            }
+
+            .sidebar-footer button {
+                flex: 1;
+                padding: 8px;
+                border: 1px solid #d0d0d0;
+                background: white;
+                color: #4a5568;
+                border-radius: 4px;
+                font-size: 12px;
+                cursor: pointer;
+                font-weight: 500;
+                transition: all 0.2s;
+            }
+
+            .sidebar-footer button:hover {
+                background: #f7fafc;
+                border-color: #a0aec0;
+            }
+
+            .mobile-toggle {
+                display: none;
+                position: fixed;
+                top: 20px;
+                left: 20px;
+                z-index: 1001;
+                background: #2d3748;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                width: 44px;
+                height: 44px;
+                cursor: pointer;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+                align-items: center;
+                justify-content: center;
+            }
+
+            .mobile-toggle:active {
+                transform: scale(0.95);
+            }
+
+            .hamburger {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .hamburger span {
+                width: 20px;
+                height: 2px;
+                background: white;
+                border-radius: 2px;
+                transition: all 0.3s;
+            }
+
+            .mobile-toggle.active .hamburger span:nth-child(1) {
+                transform: rotate(45deg) translate(5px, 5px);
+            }
+
+            .mobile-toggle.active .hamburger span:nth-child(2) {
+                opacity: 0;
+            }
+
+            .mobile-toggle.active .hamburger span:nth-child(3) {
+                transform: rotate(-45deg) translate(6px, -6px);
+            }
+
+            .main-content {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                background: #fafafa;
+            }
+
+            .editor-container {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+                overflow-y: auto;
+            }
+
+            .editor {
+                width: 100%;
+                max-width: 1200px;
+                height: calc(100vh - 80px);
+                max-height: 900px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                padding: 40px;
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .editor-title {
+                font-size: 28px;
+                font-weight: 600;
+                border: none;
+                outline: none;
+                color: #1a1a1a;
+                font-family: inherit;
+            }
+
+            .editor-title::placeholder {
+                color: #cbd5e0;
+            }
+
+            .markdown-toolbar {
+                display: flex;
+                gap: 4px;
+                padding: 8px;
+                background: #f7fafc;
+                border-radius: 6px;
+                border: 1px solid #e2e8f0;
+                flex-wrap: wrap;
+            }
+
+            .markdown-toolbar button {
+                padding: 6px 10px;
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 500;
+                color: #4a5568;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+
+            .markdown-toolbar button:hover {
+                background: #edf2f7;
+                border-color: #cbd5e0;
+            }
+
+            .markdown-toolbar button:active {
+                transform: scale(0.95);
+            }
+
+            .editor-split {
+                flex: 1;
+                display: flex;
+                gap: 20px;
+                min-height: 0;
+            }
+
+            .editor-pane {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+            }
+
+            .pane-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+                padding-bottom: 8px;
+                border-bottom: 2px solid #e2e8f0;
+            }
+
+            .pane-title {
+                font-size: 14px;
+                font-weight: 600;
+                color: #4a5568;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+
+            .view-toggle {
+                display: flex;
+                gap: 4px;
+                background: #f7fafc;
+                padding: 2px;
+                border-radius: 4px;
+            }
+
+            .view-toggle button {
+                padding: 4px 10px;
+                background: transparent;
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 11px;
+                font-weight: 500;
+                color: #718096;
+                transition: all 0.2s;
+            }
+
+            .view-toggle button.active {
+                background: white;
+                color: #2d3748;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            }
+
+            .mobile-view-toggle {
+                border-bottom: 1px solid #e2e8f0;
+            }
+
+            .toolbar-separator {
+                width: 1px;
+                background: #e2e8f0;
+                margin: 0 4px;
+            }
+
+            .editor-content {
+                flex: 1;
+                min-height: 300px;
+                font-size: 16px;
+                line-height: 1.6;
+                border: none;
+                outline: none;
+                resize: none;
+                color: #2d3748;
+                font-family: inherit;
+            }
+
+            .editor-content::placeholder {
+                color: #cbd5e0;
+            }
+
+            .markdown-preview {
+                flex: 1;
+                min-height: 400px;
+                font-size: 16px;
+                line-height: 1.7;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 16px;
+                color: #2d3748;
+                overflow-y: auto;
+            }
+
+            .markdown-preview h1 {
+                font-size: 2em;
+                font-weight: 700;
+                margin-top: 0;
+                margin-bottom: 0.5em;
+                color: #1a1a1a;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 0.3em;
+            }
+
+            .markdown-preview h2 {
+                font-size: 1.5em;
+                font-weight: 700;
+                margin-top: 1em;
+                margin-bottom: 0.5em;
+                color: #1a1a1a;
+                border-bottom: 1px solid #e2e8f0;
+                padding-bottom: 0.3em;
+            }
+
+            .markdown-preview h3 {
+                font-size: 1.25em;
+                font-weight: 600;
+                margin-top: 1em;
+                margin-bottom: 0.5em;
+                color: #2d3748;
+            }
+
+            .markdown-preview h4,
+            .markdown-preview h5,
+            .markdown-preview h6 {
+                font-size: 1em;
+                font-weight: 600;
+                margin-top: 0.8em;
+                margin-bottom: 0.5em;
+                color: #2d3748;
+            }
+
+            .markdown-preview p {
+                margin-bottom: 1em;
+            }
+
+            .markdown-preview ul,
+            .markdown-preview ol {
+                margin-bottom: 1em;
+                padding-left: 2em;
+            }
+
+            .markdown-preview li {
+                margin-bottom: 0.25em;
+            }
+
+            .markdown-preview code {
+                background: #f7fafc;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+                font-size: 0.9em;
+                color: #c53030;
+            }
+
+            .markdown-preview pre {
+                background: #2d3748;
+                color: #e2e8f0;
+                padding: 16px;
+                border-radius: 6px;
+                overflow-x: auto;
+                margin-bottom: 1em;
+            }
+
+            .markdown-preview pre code {
+                background: transparent;
+                padding: 0;
+                color: inherit;
+                font-size: 0.9em;
+            }
+
+            .markdown-preview blockquote {
+                border-left: 4px solid #cbd5e0;
+                padding-left: 16px;
+                margin: 1em 0;
+                color: #718096;
+                font-style: italic;
+            }
+
+            .markdown-preview a {
+                color: #3182ce;
+                text-decoration: none;
+            }
+
+            .markdown-preview a:hover {
+                text-decoration: underline;
+            }
+
+            .markdown-preview img {
+                max-width: 100%;
+                height: auto;
+                border-radius: 6px;
+                margin: 1em 0;
+            }
+
+            .markdown-preview hr {
+                border: none;
+                border-top: 2px solid #e2e8f0;
+                margin: 2em 0;
+            }
+
+            .markdown-preview table {
+                border-collapse: collapse;
+                width: 100%;
+                margin-bottom: 1em;
+            }
+
+            .markdown-preview th,
+            .markdown-preview td {
+                border: 1px solid #e2e8f0;
+                padding: 8px 12px;
+                text-align: left;
+            }
+
+            .markdown-preview th {
+                background: #f7fafc;
+                font-weight: 600;
+            }
+
+            .markdown-preview strong {
+                font-weight: 700;
+                color: #1a1a1a;
+            }
+
+            .markdown-preview em {
+                font-style: italic;
+            }
+
+            .markdown-preview del {
+                text-decoration: line-through;
+                color: #718096;
+            }
+
+            .word-count {
+                font-size: 12px;
+                color: #a0aec0;
+                text-align: right;
+                padding-top: 4px;
+            }
+
+            .editor-actions {
+                display: flex;
+                gap: 12px;
+                padding-top: 20px;
+                border-top: 1px solid #e2e8f0;
+            }
+
+            .editor-actions button {
+                padding: 10px 24px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .btn-save {
+                background: #2d3748;
+                color: white;
+            }
+
+            .btn-save:hover {
+                background: #1a202c;
+            }
+
+            .btn-save:disabled {
+                background: #cbd5e0;
+                cursor: not-allowed;
+            }
+
+            .btn-delete {
+                background: #fff5f5;
+                color: #c53030;
+                border: 1px solid #feb2b2;
+            }
+
+            .btn-delete:hover {
+                background: #fed7d7;
+            }
+
+            .placeholder-state {
+                text-align: center;
+                color: #a0aec0;
+            }
+
+            .placeholder-state h2 {
+                font-size: 24px;
+                font-weight: 600;
+                color: #4a5568;
+                margin-bottom: 12px;
+            }
+
+            .placeholder-state p {
+                font-size: 14px;
+            }
+
+            .modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 1000;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .modal.active {
+                display: flex;
+            }
+
+            .modal-content {
+                background: white;
+                border-radius: 8px;
+                padding: 24px;
+                max-width: 400px;
+                width: 90%;
+            }
+
+            .modal-title {
+                font-size: 18px;
+                font-weight: 600;
+                color: #1a1a1a;
+                margin-bottom: 16px;
+            }
+
+            .modal-message {
+                font-size: 14px;
+                color: #4a5568;
+                line-height: 1.5;
+                margin-bottom: 20px;
+            }
+
+            .modal-actions {
+                display: flex;
+                gap: 12px;
+                justify-content: flex-end;
+            }
+
+            .modal-actions button {
+                padding: 8px 16px;
+                border: none;
+                border-radius: 6px;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+            }
+
+            .btn-modal-cancel {
+                background: #e2e8f0;
+                color: #2d3748;
+            }
+
+            .btn-modal-confirm {
+                background: #2d3748;
+                color: white;
+            }
+
+            .toast {
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                background: #2d3748;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 6px;
+                font-size: 14px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                opacity: 0;
+                transform: translateY(20px);
+                transition: all 0.3s;
+                z-index: 2000;
+            }
+
+            .toast.show {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            .toast.error {
+                background: #c53030;
+            }
+
+            .toast.success {
+                background: #38a169;
+            }
+
+            .settings-item {
+                display: flex;
+                align-items: center;
+                gap: 16px;
+                padding: 16px;
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s;
+                text-align: left;
+            }
+
+            .settings-item:hover {
+                background: #f7fafc;
+                border-color: #cbd5e0;
+            }
+
+            #importFileInput {
+                display: none;
+            }
+
+            @media (max-width: 768px) {
+                .mobile-toggle {
+                    display: flex;
+                }
+
+                .mobile-view-toggle {
+                    display: block !important;
+                }
+
+                .pane-header {
+                    display: none;
+                }
+
+                .pane-title {
+                    display: none;
+                }
+
+                .word-count {
+                    position: absolute;
+                    bottom: 8px;
+                    right: 16px;
+                    background: rgba(250, 250, 250, 0.9);
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                }
+
+                .editor-pane {
+                    flex: 1;
+                    min-height: 0;
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .editor-split.edit-only .editor-pane:first-child,
+                .editor-split.preview-only .editor-pane:last-child {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                .sidebar {
+                    position: fixed;
+                    top: 0;
+                    left: -320px;
+                    height: 100vh;
+                    z-index: 1000;
+                    transition: left 0.3s ease;
+                    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+                }
+
+                .sidebar.open {
+                    left: 0;
+                }
+
+                .sidebar-overlay {
+                    display: none;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.5);
+                    z-index: 999;
+                }
+
+                .sidebar-overlay.active {
+                    display: block;
+                }
+
+                .sidebar-header {
+                    padding: 16px;
+                }
+
+                .app-title {
+                    font-size: 18px;
+                    margin-bottom: 16px;
+                }
+
+                .notes-section {
+                    padding: 12px;
+                }
+
+                .notes-header {
+                    margin-bottom: 10px;
+                }
+
+                .note-item {
+                    padding: 10px;
+                }
+
+                .main-content {
+                    width: 100%;
+                }
+
+                .editor-container {
+                    padding: 80px 20px 20px;
+                    align-items: flex-start;
+                }
+
+                .editor {
+                    padding: 24px;
+                    height: auto;
+                    min-height: calc(80vh - 10px);
+                }
+
+                .header-top {
+                    padding: 7px 11px;
+                }
+
+                .app-title {
+                    font-size: 18px;
+                }
+
+                .contacts-icon {
+                    font-size: 27px;
+                    padding: 0px 0px 9px 0px;
+                }
+
+                .user-section {
+                    padding: 17px 17px 17px;
+                    min-height: 88px;
+                }
+
+                .user-name-display {
+                    min-height: 48px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .user-hint {
+                    font-size: 10px;
+                }
+
+                .action-btn {
+                    font-size: 12px;
+                    padding: 8px 14px;
+                }
+
+                .editor-split {
+                    flex-direction: column;
+                }
+
+                .view-toggle button[data-view="split"] {
+                    display: none;
+                }
+
+                .editor-split.edit-only .editor-pane:last-child {
+                    display: none;
+                }
+
+                .editor-split.preview-only .editor-pane:first-child {
+                    display: none;
+                }
+
+                .markdown-toolbar {
+                    overflow-x: auto;
+                    flex-wrap: nowrap;
+                    min-height: 50px;
+                    align-items: center;
+                }
+
+                .markdown-toolbar button {
+                    flex-shrink: 0;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <button class="mobile-toggle" id="mobileToggle">
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </button>
+
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <div class="container">
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-header">
+                    <div class="header-top">
+                        <h1 class="app-title">R1DO Notes v2</h1>
+                        <button
+                            class="contacts-icon"
+                            id="contactsIconBtn"
+                            title="Contacts"
+                            style="display: none"
+                        >
+                            📇
+                        </button>
+                    </div>
+
+                    <div class="auth-section" id="authSection">
+                        <input
+                            type="text"
+                            id="usernameInput"
+                            placeholder="Username or email"
+                            autocomplete="username webauthn"
+                        />
+                        <button id="loginBtn">Login / Register</button>
+
+                        <div
+                            id="existingUsers"
+                            style="margin-top: 12px; display: none"
+                        >
+                            <div
+                                style="
+                                    font-size: 11px;
+                                    color: #718096;
+                                    margin-bottom: 6px;
+                                    text-transform: uppercase;
+                                    letter-spacing: 0.5px;
+                                "
+                            >
+                                Existing Users
+                            </div>
+                            <div
+                                id="usersList"
+                                style="
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 4px;
+                                "
+                            ></div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="user-section"
+                        id="userSection"
+                        style="display: none"
+                    >
+                        <div class="user-name-display" id="userNameDisplay">
+                            <span id="currentUsername"></span>
+                        </div>
+                        <div class="user-hint">tap to copy public key</div>
+
+                        <div class="user-actions">
+                            <button
+                                class="action-btn logout-btn"
+                                id="logoutBtn"
+                            >
+                                Logout
+                            </button>
+                            <button
+                                class="action-btn settings-btn"
+                                id="settingsBtn"
+                            >
+                                Settings
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="notes-section">
+                    <div class="notes-header">
+                        <div class="notes-title">My Notes</div>
+                        <button class="new-note-btn" id="newNoteBtn" disabled>
+                            New
+                        </button>
+                    </div>
+                    <div class="notes-list" id="notesList">
+                        <div class="empty-notes">
+                            No notes yet. Create one to get started.
+                        </div>
+                    </div>
+
+                    <div class="notes-header" style="margin-top: 24px">
+                        <div class="notes-title">Shared Notes</div>
+                    </div>
+                    <div
+                        style="
+                            padding: 12px;
+                            background: #f7fafc;
+                            border-radius: 6px;
+                        "
+                    >
+                        <textarea
+                            id="sharedNoteInput"
+                            placeholder="Paste encrypted note here..."
+                            style="
+                                width: 100%;
+                                min-height: 80px;
+                                padding: 8px;
+                                border: 1px solid #e2e8f0;
+                                border-radius: 4px;
+                                font-size: 12px;
+                                font-family: monospace;
+                                resize: vertical;
+                            "
+                            disabled
+                        ></textarea>
+                        <button
+                            id="decryptSharedBtn"
+                            style="
+                                width: 100%;
+                                margin-top: 8px;
+                                padding: 8px;
+                                background: #8b5cf6;
+                                color: white;
+                                border: none;
+                                border-radius: 4px;
+                                font-size: 13px;
+                                cursor: pointer;
+                            "
+                            disabled
+                        >
+                            Decrypt & View
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sidebar-footer">
+                    <button
+                        id="importAccountsFooterBtn"
+                        style="
+                            width: 100%;
+                            padding: 10px;
+                            background: #4a5568;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            font-size: 13px;
+                            font-weight: 500;
+                            cursor: pointer;
+                            transition: background 0.2s;
+                        "
+                    >
+                        Import Accounts
+                    </button>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <div class="editor-container">
+                    <div class="placeholder-state" id="placeholderState">
+                        <h2>Welcome to R1DO Notes</h2>
+                        <p>Login to start taking and sharing encrypted notes</p>
+                    </div>
+
+                    <div class="editor" id="editor" style="display: none">
+                        <input
+                            type="text"
+                            class="editor-title"
+                            id="noteTitle"
+                            placeholder="Note title"
+                        />
+
+                        <div class="markdown-toolbar">
+                            <button id="btnBold" title="Bold (Ctrl+B)">
+                                <strong>B</strong>
+                            </button>
+                            <button id="btnItalic" title="Italic (Ctrl+I)">
+                                <em>I</em>
+                            </button>
+                            <button id="btnStrike" title="Strikethrough">
+                                <del>S</del>
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button id="btnH1" title="Heading 1">H1</button>
+                            <button id="btnH2" title="Heading 2">H2</button>
+                            <button id="btnH3" title="Heading 3">H3</button>
+                            <div class="toolbar-separator"></div>
+                            <button id="btnQuote" title="Quote">❝</button>
+                            <button id="btnCode" title="Code">&lt;/&gt;</button>
+                            <button id="btnLink" title="Link">🔗</button>
+                            <div class="toolbar-separator"></div>
+                            <button id="btnUL" title="Bullet List">
+                                • List
+                            </button>
+                            <button id="btnOL" title="Numbered List">
+                                1. List
+                            </button>
+                            <button id="btnCheck" title="Checklist">
+                                ☑ Todo
+                            </button>
+                            <div class="toolbar-separator"></div>
+                            <button id="btnTable" title="Table">📊</button>
+                            <button id="btnHR" title="Horizontal Rule">
+                                ―
+                            </button>
+                        </div>
+
+                        <div
+                            class="mobile-view-toggle"
+                            id="mobileViewToggle"
+                            style="display: none"
+                        >
+                            <div class="view-toggle">
+                                <button class="active" data-view="edit">
+                                    Edit
+                                </button>
+                                <button data-view="preview">Preview</button>
+                            </div>
+                        </div>
+
+                        <div class="editor-split" id="editorSplit">
+                            <div class="editor-pane">
+                                <textarea
+                                    class="editor-content"
+                                    id="noteContent"
+                                    placeholder="Write your markdown here...&#10;&#10;# Heading&#10;**Bold** *Italic* ~~Strikethrough~~&#10;- List item&#10;```code```&#10;> Quote&#10;[Link](url)"
+                                ></textarea>
+                                <div class="word-count" id="wordCount">
+                                    0 words · 0 characters
+                                </div>
+                            </div>
+
+                            <div class="editor-pane">
+                                <div
+                                    class="markdown-preview"
+                                    id="markdownPreview"
+                                >
+                                    <p style="color: #cbd5e0">
+                                        Preview will appear here...
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="editor-actions">
+                            <button class="btn-save" id="saveBtn">
+                                Save Note
+                            </button>
+                            <button
+                                class="btn-delete"
+                                id="deleteBtn"
+                                style="display: none"
+                            >
+                                Delete
+                            </button>
+                            <button
+                                class="btn-save"
+                                id="shareBtn"
+                                style="background: #8b5cf6; display: none"
+                            >
+                                Share Encrypted
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal" id="modal">
+            <div class="modal-content">
+                <div class="modal-title" id="modalTitle">Confirm</div>
+                <div class="modal-message" id="modalMessage"></div>
+                <div class="modal-actions">
+                    <button class="btn-modal-cancel" id="modalCancel">
+                        Cancel
+                    </button>
+                    <button class="btn-modal-confirm" id="modalConfirm">
+                        Confirm
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="toast" id="toast"></div>
+
+        <div class="modal" id="settingsModal">
+            <div class="modal-content" style="max-width: 600px">
+                <div
+                    style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                    "
+                >
+                    <div class="modal-title">Settings</div>
+                    <button
+                        id="closeSettingsBtn"
+                        style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: #718096;
+                        "
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 12px">
+                    <button class="settings-item" id="settingsManageDataBtn">
+                        <div style="font-size: 20px">💾</div>
+                        <div>
+                            <div
+                                style="
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                    color: #2d3748;
+                                "
+                            >
+                                Manage Data
+                            </div>
+                            <div style="font-size: 12px; color: #718096">
+                                Export & import all data
+                            </div>
+                        </div>
+                    </button>
+
+                    <button class="settings-item" id="settingsPublicKeyBtn">
+                        <div style="font-size: 20px">🔑</div>
+                        <div>
+                            <div
+                                style="
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                    color: #2d3748;
+                                "
+                            >
+                                My Public Key
+                            </div>
+                            <div style="font-size: 12px; color: #718096">
+                                Copy or share your key
+                            </div>
+                        </div>
+                    </button>
+
+                    <button
+                        class="settings-item"
+                        id="settingsClearBtn"
+                        style="border-color: #feb2b2"
+                    >
+                        <div style="font-size: 20px">🗑️</div>
+                        <div>
+                            <div
+                                style="
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                    color: #c53030;
+                                "
+                            >
+                                Clear All Data
+                            </div>
+                            <div style="font-size: 12px; color: #718096">
+                                Delete everything
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal" id="manageDataModal">
+            <div class="modal-content" style="max-width: 600px">
+                <div
+                    style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                    "
+                >
+                    <div class="modal-title">Manage Data</div>
+                    <button
+                        id="closeManageDataBtn"
+                        style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: #718096;
+                        "
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 12px">
+                    <button class="settings-item" id="manageDataExportNotesBtn">
+                        <div style="font-size: 20px">📤</div>
+                        <div>
+                            <div
+                                style="
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                    color: #2d3748;
+                                "
+                            >
+                                Export Notes
+                            </div>
+                            <div style="font-size: 12px; color: #718096">
+                                Backup encrypted notes
+                            </div>
+                        </div>
+                    </button>
+
+                    <button class="settings-item" id="manageDataImportNotesBtn">
+                        <div style="font-size: 20px">📥</div>
+                        <div>
+                            <div
+                                style="
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                    color: #2d3748;
+                                "
+                            >
+                                Import Notes
+                            </div>
+                            <div style="font-size: 12px; color: #718096">
+                                Restore encrypted notes from backup
+                            </div>
+                        </div>
+                    </button>
+
+                    <button
+                        class="settings-item"
+                        id="manageDataExportContactsBtn"
+                    >
+                        <div style="font-size: 20px">📤</div>
+                        <div>
+                            <div
+                                style="
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                    color: #2d3748;
+                                "
+                            >
+                                Export Contacts
+                            </div>
+                            <div style="font-size: 12px; color: #718096">
+                                Backup contacts list
+                            </div>
+                        </div>
+                    </button>
+
+                    <button
+                        class="settings-item"
+                        id="manageDataImportContactsBtn"
+                    >
+                        <div style="font-size: 20px">📥</div>
+                        <div>
+                            <div
+                                style="
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                    color: #2d3748;
+                                "
+                            >
+                                Import Contacts
+                            </div>
+                            <div style="font-size: 12px; color: #718096">
+                                Restore contacts from backup
+                            </div>
+                        </div>
+                    </button>
+
+                    <button
+                        class="settings-item"
+                        id="manageDataExportAccountsBtn"
+                    >
+                        <div style="font-size: 20px">📤</div>
+                        <div>
+                            <div
+                                style="
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                    color: #2d3748;
+                                "
+                            >
+                                Export Accounts
+                            </div>
+                            <div style="font-size: 12px; color: #718096">
+                                Backup passkey accounts
+                            </div>
+                        </div>
+                    </button>
+
+                    <button
+                        class="settings-item"
+                        id="manageDataImportAccountsBtn"
+                    >
+                        <div style="font-size: 20px">📥</div>
+                        <div>
+                            <div
+                                style="
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                    color: #2d3748;
+                                "
+                            >
+                                Import Accounts
+                            </div>
+                            <div style="font-size: 12px; color: #718096">
+                                Restore passkey accounts
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal" id="contactsModal">
+            <div class="modal-content" style="max-width: 500px">
+                <div
+                    style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                    "
+                >
+                    <div class="modal-title">Contacts</div>
+                    <button
+                        id="closeContactsBtn"
+                        style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: #718096;
+                        "
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div style="margin-bottom: 20px">
+                    <button
+                        id="addContactBtn"
+                        style="
+                            width: 100%;
+                            padding: 10px;
+                            background: #2d3748;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            font-size: 14px;
+                            font-weight: 500;
+                            cursor: pointer;
+                        "
+                    >
+                        + Add Contact
+                    </button>
+                </div>
+
+                <div
+                    id="contactsList"
+                    style="
+                        display: flex;
+                        flex-direction: column;
+                        gap: 8px;
+                        max-height: 400px;
+                        overflow-y: auto;
+                    "
+                >
+                    <div
+                        style="
+                            text-align: center;
+                            padding: 40px;
+                            color: #a0aec0;
+                            font-size: 13px;
+                        "
+                    >
+                        No contacts yet. Add one to get started.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal" id="publicKeyModal">
+            <div class="modal-content" style="max-width: 400px">
+                <div
+                    style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                    "
+                >
+                    <div class="modal-title">My Public Key</div>
+                    <button
+                        id="closePublicKeyBtn"
+                        style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: #718096;
+                        "
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div style="text-align: center">
+                    <canvas
+                        id="qrCanvas"
+                        style="
+                            max-width: 100%;
+                            border-radius: 8px;
+                            margin-bottom: 16px;
+                        "
+                    ></canvas>
+
+                    <div
+                        style="
+                            background: #f7fafc;
+                            padding: 12px;
+                            border-radius: 6px;
+                            margin-bottom: 16px;
+                            word-break: break-all;
+                            font-family: monospace;
+                            font-size: 11px;
+                            color: #4a5568;
+                        "
+                        id="publicKeyPreview"
+                    ></div>
+
+                    <div style="display: flex; gap: 8px">
+                        <button
+                            id="copyPublicKeyBtn"
+                            style="
+                                flex: 1;
+                                padding: 10px;
+                                background: #2d3748;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                font-size: 14px;
+                                font-weight: 500;
+                                cursor: pointer;
+                            "
+                        >
+                            Copy to Clipboard
+                        </button>
+                        <button
+                            id="sharePublicKeyBtn"
+                            style="
+                                flex: 1;
+                                padding: 10px;
+                                background: #8b5cf6;
+                                color: white;
+                                border: none;
+                                border-radius: 6px;
+                                font-size: 14px;
+                                font-weight: 500;
+                                cursor: pointer;
+                            "
+                        >
+                            Share
+                        </button>
+                    </div>
+
+                    <div
+                        style="
+                            margin-top: 16px;
+                            font-size: 12px;
+                            color: #718096;
+                            line-height: 1.5;
+                        "
+                    >
+                        Share this key with others so they can send you
+                        encrypted notes.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal" id="shareRecipientModal">
+            <div class="modal-content" style="max-width: 450px">
+                <div
+                    style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                    "
+                >
+                    <div class="modal-title">Share Encrypted Note</div>
+                    <button
+                        id="closeShareRecipientBtn"
+                        style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: #718096;
+                        "
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div style="margin-bottom: 16px">
+                    <label
+                        style="
+                            display: block;
+                            font-size: 13px;
+                            font-weight: 500;
+                            color: #4a5568;
+                            margin-bottom: 8px;
+                        "
+                    >
+                        Select recipient:
+                    </label>
+                    <select
+                        id="recipientSelect"
+                        style="
+                            width: 100%;
+                            padding: 10px 12px;
+                            border: 1px solid #d0d0d0;
+                            border-radius: 6px;
+                            font-size: 14px;
+                            background: white;
+                            cursor: pointer;
+                        "
+                    >
+                        <option value="">Choose a contact...</option>
+                    </select>
+                </div>
+
+                <div
+                    style="
+                        text-align: center;
+                        margin: 16px 0;
+                        color: #a0aec0;
+                        font-size: 13px;
+                    "
+                >
+                    or
+                </div>
+
+                <div style="margin-bottom: 20px">
+                    <label
+                        style="
+                            display: block;
+                            font-size: 13px;
+                            font-weight: 500;
+                            color: #4a5568;
+                            margin-bottom: 8px;
+                        "
+                    >
+                        Enter public key manually:
+                    </label>
+                    <input
+                        type="text"
+                        id="manualPublicKeyInput"
+                        placeholder="130 hex characters..."
+                        style="
+                            width: 100%;
+                            padding: 10px 12px;
+                            border: 1px solid #d0d0d0;
+                            border-radius: 6px;
+                            font-size: 12px;
+                            font-family: monospace;
+                        "
+                    />
+                </div>
+
+                <button
+                    id="confirmShareBtn"
+                    style="
+                        width: 100%;
+                        padding: 12px;
+                        background: #8b5cf6;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        font-weight: 500;
+                        cursor: pointer;
+                    "
+                >
+                    Encrypt & Share
+                </button>
+            </div>
+        </div>
+
+        <input type="file" id="importFileInput" accept=".json" />
+        <input type="file" id="importContactsFileInput" accept=".json" />
+        <input type="file" id="importAccountsFileInput" accept=".json" />
+
+        <button id="exportBtn" style="display: none"></button>
+        <button id="importBtn" style="display: none"></button>
+
+        <script type="module">
+            import QRCode from "./js/qrcode.js";
+            import { marked } from "./js/marked.js";
+            import * as R1DO from "./js/r1do-auth.js";
+
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                headerIds: false,
+                mangle: false,
+            });
+
+            // ==================== GLOBAL STATE ====================
+            // Auth, credential store (R1DOToolsDB) and key derivation
+            // live in js/r1do-auth.js — shared across the R1DO suite.
+            let currentAESKey = null;
+            let currentContactsKey = null;
+            let currentUsername = null;
+            let currentNoteId = null;
+            let currentPrivateKey = null;
+            let currentPublicKey = null;
+            let contactsCache = [];
+            let notes = [];
+
+            // ==================== DOM ELEMENTS ====================
+            const usernameInput = document.getElementById("usernameInput");
+            const loginBtn = document.getElementById("loginBtn");
+            const authSection = document.getElementById("authSection");
+            const existingUsers = document.getElementById("existingUsers");
+            const usersList = document.getElementById("usersList");
+            const currentUsernameEl =
+                document.getElementById("currentUsername");
+            const logoutBtn = document.getElementById("logoutBtn");
+            const newNoteBtn = document.getElementById("newNoteBtn");
+            const notesList = document.getElementById("notesList");
+            const exportBtn = document.getElementById("exportBtn");
+            const importBtn = document.getElementById("importBtn");
+            const importFileInput = document.getElementById("importFileInput");
+            const importContactsFileInput = document.getElementById(
+                "importContactsFileInput",
+            );
+            const importAccountsFileInput = document.getElementById(
+                "importAccountsFileInput",
+            );
+            const placeholderState =
+                document.getElementById("placeholderState");
+            const editor = document.getElementById("editor");
+            const noteTitle = document.getElementById("noteTitle");
+            const noteContent = document.getElementById("noteContent");
+            const saveBtn = document.getElementById("saveBtn");
+            const deleteBtn = document.getElementById("deleteBtn");
+            const shareBtn = document.getElementById("shareBtn");
+            const sharedNoteInput = document.getElementById("sharedNoteInput");
+            const decryptSharedBtn =
+                document.getElementById("decryptSharedBtn");
+            const modal = document.getElementById("modal");
+            const modalTitle = document.getElementById("modalTitle");
+            const modalMessage = document.getElementById("modalMessage");
+            const modalCancel = document.getElementById("modalCancel");
+            const modalConfirm = document.getElementById("modalConfirm");
+            const toast = document.getElementById("toast");
+            const mobileToggle = document.getElementById("mobileToggle");
+            const sidebar = document.getElementById("sidebar");
+            const sidebarOverlay = document.getElementById("sidebarOverlay");
+            const settingsBtn = document.getElementById("settingsBtn");
+            const settingsModal = document.getElementById("settingsModal");
+            const closeSettingsBtn =
+                document.getElementById("closeSettingsBtn");
+            const settingsManageDataBtn = document.getElementById(
+                "settingsManageDataBtn",
+            );
+            const settingsPublicKeyBtn = document.getElementById(
+                "settingsPublicKeyBtn",
+            );
+            const settingsClearBtn =
+                document.getElementById("settingsClearBtn");
+            const manageDataModal = document.getElementById("manageDataModal");
+            const closeManageDataBtn =
+                document.getElementById("closeManageDataBtn");
+            const manageDataExportNotesBtn = document.getElementById(
+                "manageDataExportNotesBtn",
+            );
+            const manageDataImportNotesBtn = document.getElementById(
+                "manageDataImportNotesBtn",
+            );
+            const manageDataExportContactsBtn = document.getElementById(
+                "manageDataExportContactsBtn",
+            );
+            const manageDataImportContactsBtn = document.getElementById(
+                "manageDataImportContactsBtn",
+            );
+            const manageDataExportAccountsBtn = document.getElementById(
+                "manageDataExportAccountsBtn",
+            );
+            const manageDataImportAccountsBtn = document.getElementById(
+                "manageDataImportAccountsBtn",
+            );
+            const contactsModal = document.getElementById("contactsModal");
+            const closeContactsBtn =
+                document.getElementById("closeContactsBtn");
+            const addContactBtn = document.getElementById("addContactBtn");
+            const contactsList = document.getElementById("contactsList");
+            const publicKeyModal = document.getElementById("publicKeyModal");
+            const closePublicKeyBtn =
+                document.getElementById("closePublicKeyBtn");
+            const qrCanvas = document.getElementById("qrCanvas");
+            const publicKeyPreview =
+                document.getElementById("publicKeyPreview");
+            const copyPublicKeyBtn =
+                document.getElementById("copyPublicKeyBtn");
+            const sharePublicKeyBtn =
+                document.getElementById("sharePublicKeyBtn");
+            const shareRecipientModal = document.getElementById(
+                "shareRecipientModal",
+            );
+            const closeShareRecipientBtn = document.getElementById(
+                "closeShareRecipientBtn",
+            );
+            const recipientSelect = document.getElementById("recipientSelect");
+            const manualPublicKeyInput = document.getElementById(
+                "manualPublicKeyInput",
+            );
+            const confirmShareBtn = document.getElementById("confirmShareBtn");
+            const importAccountsFooterBtn = document.getElementById(
+                "importAccountsFooterBtn",
+            );
+            const userSection = document.getElementById("userSection");
+            const userNameDisplay = document.getElementById("userNameDisplay");
+            const userHint = document.querySelector(".user-hint");
+            const contactsIconBtn = document.getElementById("contactsIconBtn");
+            const markdownPreview = document.getElementById("markdownPreview");
+            const wordCount = document.getElementById("wordCount");
+            const editorSplit = document.getElementById("editorSplit");
+
+            // ==================== MARKDOWN TOOLBAR BUTTONS ====================
+            const btnBold = document.getElementById("btnBold");
+            const btnItalic = document.getElementById("btnItalic");
+            const btnStrike = document.getElementById("btnStrike");
+            const btnH1 = document.getElementById("btnH1");
+            const btnH2 = document.getElementById("btnH2");
+            const btnH3 = document.getElementById("btnH3");
+            const btnQuote = document.getElementById("btnQuote");
+            const btnCode = document.getElementById("btnCode");
+            const btnLink = document.getElementById("btnLink");
+            const btnUL = document.getElementById("btnUL");
+            const btnOL = document.getElementById("btnOL");
+            const btnCheck = document.getElementById("btnCheck");
+            const btnTable = document.getElementById("btnTable");
+            const btnHR = document.getElementById("btnHR");
+
+            function toggleSidebar() {
+                sidebar.classList.toggle("open");
+                sidebarOverlay.classList.toggle("active");
+                mobileToggle.classList.toggle("active");
+            }
+
+            function closeSidebar() {
+                sidebar.classList.remove("open");
+                sidebarOverlay.classList.remove("active");
+                mobileToggle.classList.remove("active");
+            }
+
+            // ==================== MARKDOWN FUNCTIONS ====================
+            function updatePreview() {
+                const markdown = noteContent.value;
+                try {
+                    const html = marked.parse(markdown);
+                    markdownPreview.innerHTML = html;
+                } catch (error) {
+                    markdownPreview.innerHTML =
+                        '<p style="color: #c53030;">Error rendering markdown</p>';
+                }
+                updateWordCount();
+            }
+
+            // ==================== SANITIZED URL PREVIEW GENERATION ====================
+            let previewCache = {};
+            let lastProcessedText = "";
+            let isGeneratingPreview = false;
+
+            function sanitizeMetadata(metadata) {
+                if (!metadata) return null;
+
+                const stripHtml = (str) => {
+                    if (!str) return "";
+                    const temp = document.createElement("div");
+                    temp.textContent = str;
+                    return temp.textContent.trim();
+                };
+
+                const isValidImageUrl = (url) => {
+                    if (!url) return false;
+                    try {
+                        const parsed = new URL(url);
+                        if (
+                            parsed.protocol !== "http:" &&
+                            parsed.protocol !== "https:"
+                        ) {
+                            console.warn(
+                                "Rejected non-HTTP(S) image URL:",
+                                url,
+                            );
+                            return false;
+                        }
+                        return true;
+                    } catch {
+                        console.warn("Invalid image URL:", url);
+                        return false;
+                    }
+                };
+
+                const isValidUrl = (url) => {
+                    if (!url) return false;
+                    try {
+                        const parsed = new URL(url);
+                        return (
+                            parsed.protocol === "http:" ||
+                            parsed.protocol === "https:"
+                        );
+                    } catch {
+                        return false;
+                    }
+                };
+
+                if (!isValidUrl(metadata.url)) {
+                    console.warn("Invalid metadata URL:", metadata.url);
+                    return null;
+                }
+
+                return {
+                    title:
+                        stripHtml(metadata.title).substring(0, 200) ||
+                        metadata.url,
+                    description:
+                        stripHtml(metadata.description).substring(0, 500) || "",
+                    image: isValidImageUrl(metadata.image)
+                        ? metadata.image
+                        : "",
+                    url: metadata.url,
+                };
+            }
+
+            async function fetchUrlMetadata(url) {
+                try {
+                    const parsed = new URL(url);
+                    if (
+                        parsed.protocol !== "http:" &&
+                        parsed.protocol !== "https:"
+                    ) {
+                        console.warn("Rejected non-HTTP(S) URL:", url);
+                        return null;
+                    }
+                } catch {
+                    console.warn("Invalid URL format:", url);
+                    return null;
+                }
+
+                if (previewCache[url]) {
+                    return previewCache[url];
+                }
+
+                try {
+                    const response = await fetch(
+                        `https://api.microlink.io?url=${encodeURIComponent(url)}`,
+                        {
+                            signal: AbortSignal.timeout(3000),
+                        },
+                    );
+
+                    if (!response.ok) {
+                        return null;
+                    }
+
+                    const data = await response.json();
+
+                    if (data.status === "success" && data.data) {
+                        const rawMetadata = {
+                            title: data.data.title || url,
+                            description: data.data.description || "",
+                            image:
+                                data.data.image?.url ||
+                                data.data.logo?.url ||
+                                "",
+                            url: url,
+                        };
+
+                        const sanitized = sanitizeMetadata(rawMetadata);
+
+                        if (!sanitized) {
+                            console.warn(
+                                "Metadata sanitization failed for:",
+                                url,
+                            );
+                            return null;
+                        }
+
+                        previewCache[url] = sanitized;
+                        return sanitized;
+                    }
+
+                    return null;
+                } catch (error) {
+                    console.error(
+                        "URL preview failed (this is OK):",
+                        error.message,
+                    );
+                    return null;
+                }
+            }
+
+            function generatePreviewMarkdown(metadata) {
+                if (!metadata) return "";
+
+                const safe = sanitizeMetadata(metadata);
+                if (!safe) return "";
+
+                let preview = "\n\n---\n\n";
+
+                if (safe.image) {
+                    const escapedTitle = safe.title.replace(
+                        /[\[\]()]/g,
+                        "\\$&",
+                    );
+                    const escapedImage = safe.image.replace(
+                        /[\[\]()]/g,
+                        "\\$&",
+                    );
+                    const escapedUrl = safe.url.replace(/[\[\]()]/g, "\\$&");
+
+                    preview += `[![${escapedTitle}](${escapedImage})](${escapedUrl})\n\n`;
+                }
+
+                const escapedTitle = safe.title.replace(/[\[\]()]/g, "\\$&");
+                const escapedUrl = safe.url.replace(/[\[\]()]/g, "\\$&");
+                preview += `### [${escapedTitle}](${escapedUrl})\n\n`;
+                preview += "---\n\n";
+
+                return preview;
+            }
+
+            function hasPreviewForUrl(text, url) {
+                const escapedUrl = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                const previewPattern = new RegExp(
+                    `${escapedUrl}[\\s\\S]{0,50}---[\\s\\S]{0,500}###.*${escapedUrl}`,
+                );
+                return previewPattern.test(text);
+            }
+
+            let urlDetectionTimeout;
+            noteContent.addEventListener("input", () => {
+                if (isGeneratingPreview) {
+                    updatePreview();
+                    return;
+                }
+
+                updatePreview();
+                clearTimeout(urlDetectionTimeout);
+
+                urlDetectionTimeout = setTimeout(async () => {
+                    await detectAndGenerateUrlPreviews();
+                }, 2000);
+            });
+
+            async function detectAndGenerateUrlPreviews() {
+                if (isGeneratingPreview) return;
+
+                const currentText = noteContent.value;
+                if (currentText === lastProcessedText) return;
+
+                const newTextLength =
+                    currentText.length - lastProcessedText.length;
+
+                if (newTextLength <= 0) {
+                    lastProcessedText = currentText;
+                    return;
+                }
+
+                const newText = currentText.substring(lastProcessedText.length);
+
+                const urlRegex = /https?:\/\/[^\s\)\]]+/g;
+                const urls = newText.match(urlRegex);
+
+                if (!urls || urls.length === 0) {
+                    lastProcessedText = currentText;
+                    return;
+                }
+
+                const newUrls = urls.filter(
+                    (url) => !hasPreviewForUrl(currentText, url),
+                );
+
+                if (newUrls.length === 0) {
+                    lastProcessedText = currentText;
+                    return;
+                }
+
+                isGeneratingPreview = true;
+
+                for (const url of newUrls) {
+                    const metadata = await fetchUrlMetadata(url);
+
+                    if (metadata) {
+                        const preview = generatePreviewMarkdown(metadata);
+
+                        if (!preview) {
+                            console.warn("Preview generation failed for:", url);
+                            continue;
+                        }
+
+                        const text = noteContent.value;
+                        const urlIndex = text.indexOf(url);
+
+                        if (urlIndex !== -1) {
+                            const afterUrl = text.substring(
+                                urlIndex + url.length,
+                                urlIndex + url.length + 10,
+                            );
+
+                            if (afterUrl.trim().startsWith("---")) {
+                                continue;
+                            }
+
+                            const before = text.substring(
+                                0,
+                                urlIndex + url.length,
+                            );
+                            const after = text.substring(urlIndex + url.length);
+                            noteContent.value = before + preview + after;
+                        }
+                    }
+                }
+
+                lastProcessedText = noteContent.value;
+                isGeneratingPreview = false;
+                updatePreview();
+            }
+
+            function updateWordCount() {
+                const text = noteContent.value.trim();
+                const words = text ? text.split(/\s+/).length : 0;
+                const chars = text.length;
+                wordCount.textContent = `${words} words · ${chars} characters`;
+            }
+
+            function insertMarkdown(before, after = "", placeholder = "") {
+                const start = noteContent.selectionStart;
+                const end = noteContent.selectionEnd;
+                const selectedText = noteContent.value.substring(start, end);
+                const textToInsert = selectedText || placeholder;
+                const newText =
+                    noteContent.value.substring(0, start) +
+                    before +
+                    textToInsert +
+                    after +
+                    noteContent.value.substring(end);
+
+                noteContent.value = newText;
+                noteContent.focus();
+
+                if (selectedText) {
+                    noteContent.selectionStart = start + before.length;
+                    noteContent.selectionEnd =
+                        start + before.length + textToInsert.length;
+                } else {
+                    noteContent.selectionStart = noteContent.selectionEnd =
+                        start + before.length + placeholder.length;
+                }
+
+                updatePreview();
+            }
+
+            function insertAtCursor(text) {
+                const start = noteContent.selectionStart;
+                const end = noteContent.selectionEnd;
+                noteContent.value =
+                    noteContent.value.substring(0, start) +
+                    text +
+                    noteContent.value.substring(end);
+                noteContent.selectionStart = noteContent.selectionEnd =
+                    start + text.length;
+                noteContent.focus();
+                updatePreview();
+            }
+
+            // ==================== MARKDOWN TOOLBAR HANDLERS ====================
+            btnBold.addEventListener("click", () =>
+                insertMarkdown("**", "**", ""),
+            );
+            btnItalic.addEventListener("click", () =>
+                insertMarkdown("*", "*", ""),
+            );
+            btnStrike.addEventListener("click", () =>
+                insertMarkdown("~~", "~~", ""),
+            );
+            btnH1.addEventListener("click", () => insertMarkdown("# ", "", ""));
+            btnH2.addEventListener("click", () =>
+                insertMarkdown("## ", "", ""),
+            );
+            btnH3.addEventListener("click", () =>
+                insertMarkdown("### ", "", ""),
+            );
+            btnQuote.addEventListener("click", () =>
+                insertMarkdown("> ", "", ""),
+            );
+            btnCode.addEventListener("click", () =>
+                insertMarkdown("`", "`", ""),
+            );
+            btnLink.addEventListener("click", () =>
+                insertMarkdown("[", "](url)", ""),
+            );
+            btnUL.addEventListener("click", () => insertMarkdown("- ", "", ""));
+            btnOL.addEventListener("click", () =>
+                insertMarkdown("1. ", "", ""),
+            );
+            btnCheck.addEventListener("click", () =>
+                insertMarkdown("- [ ] ", "", ""),
+            );
+            btnTable.addEventListener("click", () => {
+                const table =
+                    "\n| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |\n";
+                insertAtCursor(table);
+            });
+            btnHR.addEventListener("click", () => insertAtCursor("\n---\n"));
+
+            noteContent.addEventListener("keydown", (e) => {
+                if (e.ctrlKey || e.metaKey) {
+                    switch (e.key.toLowerCase()) {
+                        case "b":
+                            e.preventDefault();
+                            btnBold.click();
+                            break;
+                        case "i":
+                            e.preventDefault();
+                            btnItalic.click();
+                            break;
+                        case "s":
+                            e.preventDefault();
+                            saveBtn.click();
+                            break;
+                    }
+                }
+            });
+
+            noteContent.addEventListener("input", updatePreview);
+
+            const mobileViewToggleContainer = document.querySelector(
+                "#mobileViewToggle .view-toggle",
+            );
+
+            if (mobileViewToggleContainer) {
+                mobileViewToggleContainer
+                    .querySelectorAll("button")
+                    .forEach((btn) => {
+                        btn.addEventListener("click", () => {
+                            const view = btn.dataset.view;
+
+                            mobileViewToggleContainer
+                                .querySelectorAll("button")
+                                .forEach((b) => {
+                                    b.classList.remove("active");
+                                });
+                            btn.classList.add("active");
+
+                            editorSplit.className = "editor-split";
+                            if (view === "edit") {
+                                editorSplit.classList.add("edit-only");
+                            } else if (view === "preview") {
+                                editorSplit.classList.add("preview-only");
+                            }
+                        });
+                    });
+            }
+
+            function setMobileDefaultView() {
+                if (window.innerWidth <= 768) {
+                    const mobileButtons = document.querySelectorAll(
+                        "#mobileViewToggle .view-toggle button",
+                    );
+                    mobileButtons.forEach((b) => {
+                        if (b.dataset.view === "edit") {
+                            b.classList.add("active");
+                        } else {
+                            b.classList.remove("active");
+                        }
+                    });
+                    editorSplit.className = "editor-split edit-only";
+                } else {
+                    editorSplit.className = "editor-split";
+                }
+            }
+
+            setMobileDefaultView();
+
+            // ==================== INDEXED DB ====================
+            // Credential store: R1DOToolsDB via the shared module.
+            const initDB = R1DO.initCredDB;
+            const getCredential = R1DO.getCredential;
+            const listCredentials = R1DO.listCredentials;
+            const importCredentials = R1DO.importCredentials;
+
+            // ==================== LOCAL STORAGE NOTES ====================
+            function saveNote(encryptedData) {
+                const notes = getNotes();
+                notes.push({
+                    encryptedData: encryptedData,
+                    timestamp: new Date().toISOString(),
+                    id: crypto.randomUUID(),
+                });
+                localStorage.setItem("notes", JSON.stringify(notes));
+            }
+
+            function getNotes() {
+                const notesStr = localStorage.getItem("notes");
+                return notesStr ? JSON.parse(notesStr) : [];
+            }
+
+            function updateNote(noteId, encryptedData) {
+                const notes = getNotes();
+                const index = notes.findIndex((n) => n.id === noteId);
+                if (index !== -1) {
+                    notes[index].encryptedData = encryptedData;
+                    notes[index].timestamp = new Date().toISOString();
+                    localStorage.setItem("notes", JSON.stringify(notes));
+                }
+            }
+
+            function deleteNote(noteId) {
+                const notes = getNotes();
+                const filtered = notes.filter((note) => note.id !== noteId);
+                localStorage.setItem("notes", JSON.stringify(filtered));
+            }
+
+            function clearAllNotes() {
+                localStorage.removeItem("notes");
+            }
+
+            // ==================== CONTACTS MANAGEMENT ====================
+            // Contacts: in-memory cache, encrypted at rest (shared with chat).
+            function getContacts() {
+                return contactsCache;
+            }
+
+            function persistContacts() {
+                if (!currentContactsKey) return;
+                R1DO.storeContacts(currentContactsKey, contactsCache).catch(
+                    (e) => console.error("Failed to persist contacts:", e),
+                );
+            }
+
+            function saveContact(name, publicKey) {
+                contactsCache.push({
+                    id: crypto.randomUUID(),
+                    name: name,
+                    publicKey: publicKey,
+                    addedAt: new Date().toISOString(),
+                });
+                persistContacts();
+            }
+
+            function deleteContact(contactId) {
+                contactsCache = contactsCache.filter((c) => c.id !== contactId);
+                persistContacts();
+            }
+
+            function clearAllContacts() {
+                contactsCache = [];
+                R1DO.clearContacts();
+            }
+
+            async function renderContactsList() {
+                const contacts = getContacts();
+
+                if (contacts.length === 0) {
+                    contactsList.innerHTML =
+                        '<div style="text-align: center; padding: 40px; color: #a0aec0; font-size: 13px;">No contacts yet. Add one to get started.</div>';
+                    return;
+                }
+
+                contactsList.innerHTML = contacts
+                    .map((contact) => {
+                        const shortKey =
+                            contact.publicKey.substring(0, 10) +
+                            "..." +
+                            contact.publicKey.substring(
+                                contact.publicKey.length - 10,
+                            );
+                        const date = new Date(
+                            contact.addedAt,
+                        ).toLocaleDateString();
+                        return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-weight: 500; font-size: 14px; color: #2d3748;">${contact.name}</div>
+                            <div style="font-size: 11px; color: #a0aec0; font-family: monospace; margin-top: 2px; overflow: hidden; text-overflow: ellipsis;">${shortKey}</div>
+                            <div style="font-size: 11px; color: #a0aec0; margin-top: 2px;">Added: ${date}</div>
+                        </div>
+                        <div style="display: flex; gap: 4px;">
+                            <button class="use-contact-btn" data-contact-id="${contact.id}" style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap;">
+                                Use
+                            </button>
+                            <button class="delete-contact-btn" data-contact-id="${contact.id}" style="padding: 6px 12px; background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+                    })
+                    .join("");
+
+                document
+                    .querySelectorAll(".delete-contact-btn")
+                    .forEach((btn) => {
+                        btn.addEventListener("click", () => {
+                            const contactId = btn.dataset.contactId;
+                            const contact = contacts.find(
+                                (c) => c.id === contactId,
+                            );
+
+                            contactsModal.classList.remove("active");
+                            showModal(
+                                "Delete Contact",
+                                `Are you sure you want to delete "${contact.name}"?`,
+                                async () => {
+                                    deleteContact(contactId);
+                                    await renderContactsList();
+                                    showToast("Contact deleted", "success");
+                                },
+                            );
+                        });
+                    });
+
+                document.querySelectorAll(".use-contact-btn").forEach((btn) => {
+                    btn.addEventListener("click", async () => {
+                        const contactId = btn.dataset.contactId;
+                        const contact = contacts.find(
+                            (c) => c.id === contactId,
+                        );
+
+                        contactsModal.classList.remove("active");
+                        settingsModal.classList.remove("active");
+
+                        await shareNoteWithContact(contact);
+                    });
+                });
+            }
+
+            async function shareNoteWithContact(contact) {
+                try {
+                    const title = noteTitle.value.trim() || "Untitled";
+                    const content = noteContent.value.trim();
+
+                    if (!content) {
+                        showToast("Cannot share empty note", "error");
+                        return;
+                    }
+
+                    showToast("Encrypting...", "info");
+
+                    const fullContent = title + "\n" + content;
+                    const encrypted = await encryptForRecipient(
+                        fullContent,
+                        contact.publicKey,
+                    );
+
+                    const encryptedText = btoa(JSON.stringify(encrypted));
+
+                    const isWindows =
+                        /Win/.test(navigator.platform) ||
+                        navigator.userAgent.includes("Windows");
+
+                    if (isWindows) {
+                        try {
+                            await navigator.clipboard.writeText(encryptedText);
+                            showToast(
+                                `Encrypted note for ${contact.name} copied to clipboard`,
+                                "success",
+                            );
+                        } catch (error) {
+                            showToast("Failed to copy to clipboard", "error");
+                        }
+                    } else {
+                        if (navigator.share) {
+                            try {
+                                await navigator.share({
+                                    title: `Encrypted Note for ${contact.name}`,
+                                    text: encryptedText,
+                                });
+                                showToast("Shared successfully", "success");
+                            } catch (error) {
+                                if (error.name !== "AbortError") {
+                                    await navigator.clipboard.writeText(
+                                        encryptedText,
+                                    );
+                                    showToast("Copied to clipboard", "success");
+                                }
+                            }
+                        } else {
+                            await navigator.clipboard.writeText(encryptedText);
+                            showToast(
+                                `Encrypted note for ${contact.name} copied to clipboard`,
+                                "success",
+                            );
+                        }
+                    }
+                } catch (error) {
+                    console.error("Share error:", error);
+                    showToast(
+                        "Failed to share note: " + error.message,
+                        "error",
+                    );
+                }
+            }
+
+            // ==================== ECIES (v2: signed envelopes) ====================
+            // Shared-note envelopes are encrypted AND signed by the sender's
+            // identity key (module ECIES v2). Legacy unsigned envelopes from
+            // pre-v2 versions remain decryptable.
+
+            async function encryptForRecipient(message, recipientPublicKeyHex) {
+                return R1DO.eciesEncrypt({
+                    message,
+                    recipientPublicKeyHex,
+                    senderPrivateKey: currentPrivateKey,
+                    senderPublicKeyHex: Array.from(currentPublicKey)
+                        .map((b) => b.toString(16).padStart(2, "0"))
+                        .join(""),
+                });
+            }
+
+            // Returns { text, senderPublicKeyHex, verified }.
+            async function decryptFromSender(encryptedPackage, myPrivateKey) {
+                try {
+                    return await R1DO.decryptAnyEnvelope({
+                        envelope: encryptedPackage,
+                        myPrivateKey,
+                    });
+                } catch (error) {
+                    console.error("Decryption error:", error);
+                    throw error;
+                }
+            }
+
+            async function encryptMessage(message) {
+                if (!currentAESKey) {
+                    throw new Error("No AES key available");
+                }
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const encodedMessage = new TextEncoder().encode(message);
+                const ciphertext = await crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv: iv },
+                    currentAESKey,
+                    encodedMessage,
+                );
+                return {
+                    iv: Array.from(iv),
+                    ciphertext: Array.from(new Uint8Array(ciphertext)),
+                    username: currentUsername,
+                };
+            }
+
+            async function decryptMessage(encryptedData) {
+                if (!currentAESKey) {
+                    throw new Error("No AES key available");
+                }
+                const iv = new Uint8Array(encryptedData.iv);
+                const ciphertext = new Uint8Array(encryptedData.ciphertext);
+                const decrypted = await crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv: iv },
+                    currentAESKey,
+                    ciphertext,
+                );
+                return new TextDecoder().decode(decrypted);
+            }
+
+            // ==================== UI HELPERS ====================
+            async function renderExistingUsers() {
+                try {
+                    const credentials = await listCredentials();
+
+                    if (credentials.length === 0) {
+                        if (existingUsers) existingUsers.style.display = "none";
+                        return;
+                    }
+
+                    if (existingUsers) existingUsers.style.display = "block";
+                    if (usersList) {
+                        usersList.innerHTML = credentials
+                            .map((cred) => {
+                                const date = new Date(
+                                    cred.createdAt,
+                                ).toLocaleDateString();
+                                return `
+                            <button class="user-item-btn" data-username="${cred.username}">
+                                <div style="font-weight: 500;">${cred.username}</div>
+                                <div style="font-size: 11px; color: #a0aec0; margin-top: 2px;">Created: ${date}</div>
+                            </button>
+                        `;
+                            })
+                            .join("");
+
+                        document
+                            .querySelectorAll(".user-item-btn")
+                            .forEach((btn) => {
+                                btn.addEventListener("click", () => {
+                                    usernameInput.value = btn.dataset.username;
+                                    usernameInput.focus();
+                                });
+                            });
+                    }
+                } catch (error) {
+                    console.error("Error rendering existing users:", error);
+                }
+            }
+
+            function showToast(message, type = "info") {
+                toast.textContent = message;
+                toast.className = "toast show";
+                if (type === "error") toast.classList.add("error");
+                if (type === "success") toast.classList.add("success");
+                setTimeout(() => {
+                    toast.classList.remove("show");
+                }, 3000);
+            }
+
+            function showModal(title, message, onConfirm) {
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modal.classList.add("active");
+
+                const confirmHandler = () => {
+                    modal.classList.remove("active");
+                    onConfirm();
+                    modalConfirm.removeEventListener("click", confirmHandler);
+                };
+
+                const cancelHandler = () => {
+                    modal.classList.remove("active");
+                    modalCancel.removeEventListener("click", cancelHandler);
+                };
+
+                modalConfirm.addEventListener("click", confirmHandler);
+                modalCancel.addEventListener("click", cancelHandler);
+            }
+
+            function showEditor() {
+                placeholderState.style.display = "none";
+                editor.style.display = "flex";
+                updatePreview();
+                setMobileDefaultView();
+                lastProcessedText = noteContent.value;
+            }
+
+            function hideEditor() {
+                placeholderState.style.display = "block";
+                editor.style.display = "none";
+            }
+
+            function clearEditor() {
+                noteTitle.value = "";
+                noteContent.value = "";
+                currentNoteId = null;
+                deleteBtn.style.display = "none";
+                markdownPreview.innerHTML =
+                    '<p style="color: #cbd5e0;">Preview will appear here...</p>';
+                updateWordCount();
+                lastProcessedText = "";
+            }
+
+            async function renderNotesList() {
+                const allNotes = getNotes();
+                notes = [];
+
+                for (const note of allNotes) {
+                    try {
+                        const decrypted = await decryptMessage(
+                            note.encryptedData,
+                        );
+                        const lines = decrypted.split("\n");
+                        const title = lines[0] || "Untitled";
+                        const preview = lines
+                            .slice(1)
+                            .join(" ")
+                            .substring(0, 100);
+
+                        notes.push({
+                            id: note.id,
+                            title: title,
+                            preview: preview,
+                            content: decrypted,
+                            timestamp: note.timestamp,
+                        });
+                    } catch (error) {
+                        console.error("Failed to decrypt note:", error);
+                    }
+                }
+
+                notes.sort(
+                    (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
+                );
+
+                if (notes.length === 0) {
+                    notesList.innerHTML =
+                        '<div class="empty-notes">No notes yet. Create one to get started.</div>';
+                } else {
+                    notesList.innerHTML = notes
+                        .map((note) => {
+                            const date = new Date(
+                                note.timestamp,
+                            ).toLocaleDateString();
+                            const isActive = note.id === currentNoteId;
+                            return `
+                        <div class="note-item ${isActive ? "active" : ""}" data-note-id="${note.id}">
+                            <div class="note-title">${note.title}</div>
+                            <div class="note-preview">${note.preview}</div>
+                            <div class="note-date">${date}</div>
+                        </div>
+                    `;
+                        })
+                        .join("");
+
+                    document.querySelectorAll(".note-item").forEach((item) => {
+                        item.addEventListener("click", () => {
+                            loadNote(item.dataset.noteId);
+                        });
+                    });
+                }
+            }
+
+            function loadNote(noteId) {
+                const note = notes.find((n) => n.id === noteId);
+                if (!note) return;
+
+                currentNoteId = noteId;
+                const lines = note.content.split("\n");
+                noteTitle.value = lines[0] || "";
+                noteContent.value = lines.slice(1).join("\n");
+                deleteBtn.style.display = "block";
+                shareBtn.style.display = "block";
+                showEditor();
+                updatePreview();
+
+                lastProcessedText = noteContent.value;
+
+                setMobileDefaultView();
+
+                document.querySelectorAll(".note-item").forEach((item) => {
+                    item.classList.toggle(
+                        "active",
+                        item.dataset.noteId === noteId,
+                    );
+                });
+            }
+
+            // ==================== AUTH ====================
+            loginBtn.addEventListener("click", async () => {
+                try {
+                    const username = usernameInput.value.trim();
+                    if (!username) {
+                        showToast("Please enter a username", "error");
+                        return;
+                    }
+
+                    loginBtn.disabled = true;
+                    loginBtn.textContent = "Processing...";
+
+                    // Check if credential already exists
+                    const existingCred = await getCredential(username);
+
+                    if (!existingCred) {
+                        await R1DO.registerPasskey(username);
+                        showToast("Registered successfully!", "success");
+                        await renderExistingUsers();
+                    }
+
+                    // One biometric gesture: unified suite PRF.
+                    const { prfOutput } = await R1DO.authenticate({
+                        username,
+                    });
+
+                    // Identity (shared with chat) + per-purpose keys, all
+                    // HKDF siblings — compromising one no longer exposes
+                    // the others.
+                    const identity = await R1DO.deriveP256Identity(prfOutput);
+                    currentPrivateKey = identity.privateKey;
+                    currentPublicKey = Array.from(identity.publicKey);
+
+                    currentAESKey = await R1DO.hkdfAesKey(
+                        prfOutput,
+                        R1DO.INFO.NOTES_DEK,
+                    );
+                    currentContactsKey = await R1DO.hkdfAesKey(
+                        prfOutput,
+                        R1DO.INFO.CONTACTS_DEK,
+                    );
+
+                    R1DO.zeroize(prfOutput);
+
+                    contactsCache = await R1DO.loadContacts(currentContactsKey);
+
+                    currentUsername = username;
+
+                    authSection.style.display = "none";
+                    authSection.style.display = "none";
+                    userSection.style.display = "block";
+                    contactsIconBtn.style.display = "block";
+                    currentUsernameEl.textContent = username;
+                    settingsBtn.disabled = false;
+                    newNoteBtn.disabled = false;
+                    exportBtn.disabled = false;
+                    importBtn.disabled = false;
+                    sharedNoteInput.disabled = false;
+                    decryptSharedBtn.disabled = false;
+
+                    showToast("Logged in successfully", "success");
+
+                    await renderNotesList();
+                    clearEditor();
+                    showEditor();
+                } catch (error) {
+                    console.error(error);
+                    showToast("Login failed: " + error.message, "error");
+                } finally {
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = "Login / Register";
+                }
+            });
+
+            logoutBtn.addEventListener("click", () => {
+                currentAESKey = null;
+                currentContactsKey = null;
+                currentUsername = null;
+                currentNoteId = null;
+                R1DO.zeroize(currentPrivateKey);
+                currentPrivateKey = null;
+                currentPublicKey = null;
+                contactsCache = [];
+                notes = [];
+
+                authSection.style.display = "flex";
+                userSection.style.display = "none";
+                contactsIconBtn.style.display = "none";
+                settingsBtn.disabled = true;
+                newNoteBtn.disabled = true;
+                exportBtn.disabled = true;
+                importBtn.disabled = true;
+                sharedNoteInput.disabled = true;
+                decryptSharedBtn.disabled = true;
+                notesList.innerHTML =
+                    '<div class="empty-notes">No notes yet. Create one to get started.</div>';
+
+                hideEditor();
+                clearEditor();
+
+                showToast("Logged out", "info");
+            });
+
+            // Copy public key
+            userNameDisplay.addEventListener("click", async () => {
+                if (!currentPublicKey) {
+                    showToast("No public key available", "error");
+                    return;
+                }
+
+                try {
+                    const publicKeyHex = Array.from(currentPublicKey)
+                        .map((b) => b.toString(16).padStart(2, "0"))
+                        .join("");
+
+                    await navigator.clipboard.writeText(publicKeyHex);
+
+                    userNameDisplay.classList.add("copied");
+                    const originalHint = userHint.textContent;
+                    userHint.textContent = "Public key copied! ✓";
+
+                    setTimeout(() => {
+                        userNameDisplay.classList.remove("copied");
+                        userHint.textContent = originalHint;
+                    }, 2000);
+
+                    showToast("Public key copied to clipboard", "success");
+                } catch (error) {
+                    showToast("Failed to copy public key", "error");
+                }
+            });
+
+            contactsIconBtn.addEventListener("click", () => {
+                contactsModal.classList.add("active");
+                renderContactsList();
+            });
+
+            // ==================== NOTES ACTIONS ====================
+            newNoteBtn.addEventListener("click", () => {
+                clearEditor();
+                showEditor();
+                closeSidebar();
+                noteTitle.focus();
+            });
+
+            saveBtn.addEventListener("click", async () => {
+                try {
+                    const title = noteTitle.value.trim() || "Untitled";
+                    const content = noteContent.value.trim();
+
+                    if (!content) {
+                        showToast("Cannot save empty note", "error");
+                        return;
+                    }
+
+                    const fullContent = title + "\n" + content;
+                    const encrypted = await encryptMessage(fullContent);
+
+                    if (currentNoteId) {
+                        updateNote(currentNoteId, encrypted);
+                        showToast("Note updated", "success");
+                    } else {
+                        saveNote(encrypted);
+                        showToast("Note saved", "success");
+                    }
+
+                    await renderNotesList();
+
+                    if (!currentNoteId) {
+                        const allNotes = getNotes();
+                        currentNoteId = allNotes[allNotes.length - 1].id;
+                        deleteBtn.style.display = "block";
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast("Failed to save note", "error");
+                }
+            });
+
+            deleteBtn.addEventListener("click", () => {
+                if (!currentNoteId) return;
+
+                showModal(
+                    "Delete Note",
+                    "Are you sure you want to delete this note? This action cannot be undone.",
+                    async () => {
+                        deleteNote(currentNoteId);
+                        clearEditor();
+                        await renderNotesList();
+                        showToast("Note deleted", "success");
+                    },
+                );
+            });
+
+            // ==================== SHARE ENCRYPTED NOTE ====================
+            shareBtn.addEventListener("click", async () => {
+                const title = noteTitle.value.trim() || "Untitled";
+                const content = noteContent.value.trim();
+
+                if (!content) {
+                    showToast("Cannot share empty note", "error");
+                    return;
+                }
+
+                const contacts = getContacts();
+                recipientSelect.innerHTML =
+                    '<option value="">Choose a contact...</option>';
+
+                contacts.forEach((contact) => {
+                    const option = document.createElement("option");
+                    option.value = contact.publicKey;
+                    option.textContent = contact.name;
+                    recipientSelect.appendChild(option);
+                });
+
+                manualPublicKeyInput.value = "";
+                shareRecipientModal.classList.add("active");
+            });
+
+            closeShareRecipientBtn.addEventListener("click", () => {
+                shareRecipientModal.classList.remove("active");
+            });
+
+            recipientSelect.addEventListener("change", () => {
+                if (recipientSelect.value === "manual") {
+                    manualPublicKeyInput.focus();
+                }
+            });
+
+            confirmShareBtn.addEventListener("click", async () => {
+                try {
+                    const title = noteTitle.value.trim() || "Untitled";
+                    const content = noteContent.value.trim();
+
+                    let recipientPublicKey = null;
+                    let recipientName = null;
+
+                    if (
+                        recipientSelect.value &&
+                        recipientSelect.value !== "manual"
+                    ) {
+                        recipientPublicKey = recipientSelect.value;
+                        recipientName =
+                            recipientSelect.options[
+                                recipientSelect.selectedIndex
+                            ].text;
+                    } else if (manualPublicKeyInput.value.trim()) {
+                        recipientPublicKey = manualPublicKeyInput.value.trim();
+                        recipientName = "recipient";
+                    }
+
+                    if (!recipientPublicKey) {
+                        showToast(
+                            "Please select a contact or enter a public key",
+                            "error",
+                        );
+                        return;
+                    }
+
+                    if (!/^[0-9a-fA-F]{130}$/.test(recipientPublicKey)) {
+                        showToast(
+                            "Invalid public key format (must be 130 hex characters)",
+                            "error",
+                        );
+                        return;
+                    }
+
+                    shareRecipientModal.classList.remove("active");
+
+                    showToast("Encrypting...", "info");
+
+                    const fullContent = title + "\n" + content;
+                    const encrypted = await encryptForRecipient(
+                        fullContent,
+                        recipientPublicKey,
+                    );
+
+                    const encryptedText = btoa(JSON.stringify(encrypted));
+
+                    const isWindows =
+                        /Win/.test(navigator.platform) ||
+                        navigator.userAgent.includes("Windows");
+
+                    if (isWindows) {
+                        try {
+                            await navigator.clipboard.writeText(encryptedText);
+                            showToast(
+                                `Encrypted Note${recipientName ? " for " + recipientName : ""}`,
+                                "success",
+                            );
+                        } catch (error) {
+                            showToast("Failed to copy to clipboard", "error");
+                        }
+                    } else {
+                        if (navigator.share) {
+                            try {
+                                await navigator.share({
+                                    title: `Encrypted Note${recipientName ? " for " + recipientName : ""}`,
+                                    text: encryptedText,
+                                });
+                                showToast("Shared successfully", "success");
+                            } catch (error) {
+                                if (error.name !== "AbortError") {
+                                    await navigator.clipboard.writeText(
+                                        encryptedText,
+                                    );
+                                    showToast("Copied to clipboard", "success");
+                                }
+                            }
+                        } else {
+                            await navigator.clipboard.writeText(encryptedText);
+                            showToast(
+                                `Encrypted note${recipientName ? " for " + recipientName : ""} copied to clipboard`,
+                                "success",
+                            );
+                        }
+                    }
+                } catch (error) {
+                    console.error("Share error:", error);
+                    showToast(
+                        "Failed to share note: " + error.message,
+                        "error",
+                    );
+                }
+            });
+
+            // ==================== DECRYPT SHARED NOTE ====================
+            decryptSharedBtn.addEventListener("click", async () => {
+                try {
+                    const encryptedText = sharedNoteInput.value.trim();
+
+                    if (!encryptedText) {
+                        showToast("Please paste an encrypted note", "error");
+                        return;
+                    }
+
+                    if (!currentPrivateKey) {
+                        showToast("You need to be logged in", "error");
+                        return;
+                    }
+
+                    showToast("Decrypting...", "info");
+
+                    const encrypted = JSON.parse(atob(encryptedText));
+                    const result = await decryptFromSender(
+                        encrypted,
+                        currentPrivateKey,
+                    );
+
+                    // Load in editor
+                    const lines = result.text.split("\n");
+                    noteTitle.value = lines[0] || "Shared Note";
+                    noteContent.value = lines.slice(1).join("\n");
+                    currentNoteId = null;
+                    deleteBtn.style.display = "none";
+                    shareBtn.style.display = "block";
+                    showEditor();
+
+                    sharedNoteInput.value = "";
+
+                    // Sender authentication (v2 envelopes are signed)
+                    if (result.verified === true) {
+                        const known = getContacts().find(
+                            (c) =>
+                                c.publicKey.toLowerCase() ===
+                                result.senderPublicKeyHex.toLowerCase(),
+                        );
+                        showToast(
+                            known
+                                ? `Note decrypted — signed by ${known.name} ✓`
+                                : "Note decrypted — valid signature, sender not in contacts",
+                            "success",
+                        );
+                    } else if (result.verified === false) {
+                        showToast(
+                            "⚠ Decrypted, but the sender signature is INVALID",
+                            "error",
+                        );
+                    } else {
+                        showToast("Note decrypted", "success");
+                    }
+
+                    if (window.innerWidth <= 768) {
+                        closeSidebar();
+                    }
+                } catch (error) {
+                    console.error("Decryption error:", error);
+                    showToast(
+                        "Failed to decrypt note. Wrong key or corrupted data.",
+                        "error",
+                    );
+                }
+            });
+
+            // ==================== EXPORT/IMPORT ====================
+            exportBtn.addEventListener("click", () => {
+                try {
+                    const allNotes = getNotes();
+                    if (allNotes.length === 0) {
+                        showToast("No notes to export", "error");
+                        return;
+                    }
+
+                    const exportData = {
+                        version: "1.0",
+                        exportDate: new Date().toISOString(),
+                        notesCount: allNotes.length,
+                        notes: allNotes,
+                    };
+
+                    const jsonString = JSON.stringify(exportData, null, 2);
+                    const blob = new Blob([jsonString], {
+                        type: "application/json",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = `r1do-notes-${new Date().toISOString().split("T")[0]}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+
+                    showToast("Notes exported successfully", "success");
+                } catch (error) {
+                    console.error(error);
+                    showToast("Export failed", "error");
+                }
+            });
+
+            importBtn.addEventListener("click", () => {
+                importFileInput.click();
+            });
+
+            importFileInput.addEventListener("change", async (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                event.target.value = "";
+
+                try {
+                    const fileContent = await file.text();
+                    const importedData = JSON.parse(fileContent);
+
+                    if (
+                        !importedData.notes ||
+                        !Array.isArray(importedData.notes)
+                    ) {
+                        throw new Error("Invalid file format");
+                    }
+
+                    for (const note of importedData.notes) {
+                        if (!note.encryptedData) {
+                            showToast(
+                                "Only encrypted notes can be imported",
+                                "error",
+                            );
+                            return;
+                        }
+                    }
+
+                    const currentCount = getNotes().length;
+                    const importCount = importedData.notes.length;
+
+                    if (currentCount > 0) {
+                        showModal(
+                            "Import Notes",
+                            `You have ${currentCount} note(s). Import will merge ${importCount} new note(s). Continue?`,
+                            async () => {
+                                const newImportedNotes = importedData.notes.map(
+                                    (note) => ({
+                                        ...note,
+                                        id: crypto.randomUUID(),
+                                        importedAt: new Date().toISOString(),
+                                    }),
+                                );
+
+                                const currentNotes = getNotes();
+                                const finalNotes = [
+                                    ...currentNotes,
+                                    ...newImportedNotes,
+                                ];
+                                localStorage.setItem(
+                                    "notes",
+                                    JSON.stringify(finalNotes),
+                                );
+
+                                await renderNotesList();
+                                showToast(
+                                    `Imported ${importCount} notes`,
+                                    "success",
+                                );
+                            },
+                        );
+                    } else {
+                        localStorage.setItem(
+                            "notes",
+                            JSON.stringify(importedData.notes),
+                        );
+                        await renderNotesList();
+                        showToast(`Imported ${importCount} notes`, "success");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast("Import failed: " + error.message, "error");
+                }
+            });
+
+            mobileToggle.addEventListener("click", toggleSidebar);
+            sidebarOverlay.addEventListener("click", closeSidebar);
+
+            // Close sidebar when clicking on a note for mobile
+            notesList.addEventListener("click", (e) => {
+                if (
+                    e.target.closest(".note-item") &&
+                    window.innerWidth <= 768
+                ) {
+                    closeSidebar();
+                }
+            });
+
+            // ==================== SETTINGS ====================
+            settingsBtn.addEventListener("click", () => {
+                settingsModal.classList.add("active");
+            });
+
+            closeSettingsBtn.addEventListener("click", () => {
+                settingsModal.classList.remove("active");
+            });
+
+            settingsManageDataBtn.addEventListener("click", () => {
+                settingsModal.classList.remove("active");
+                manageDataModal.classList.add("active");
+            });
+
+            closeManageDataBtn.addEventListener("click", () => {
+                manageDataModal.classList.remove("active");
+            });
+
+            closeContactsBtn.addEventListener("click", () => {
+                contactsModal.classList.remove("active");
+            });
+
+            addContactBtn.addEventListener("click", () => {
+                const name = prompt("Contact name:");
+                if (!name) return;
+
+                const publicKey = prompt(
+                    "Contact's public key (130 hex characters):",
+                );
+                if (!publicKey) return;
+
+                if (!/^[0-9a-fA-F]{130}$/.test(publicKey)) {
+                    showToast("Invalid public key format", "error");
+                    return;
+                }
+
+                saveContact(name, publicKey);
+                renderContactsList();
+                showToast("Contact added", "success");
+            });
+
+            settingsPublicKeyBtn.addEventListener("click", async () => {
+                if (!currentPublicKey) {
+                    showToast("No public key available", "error");
+                    return;
+                }
+
+                settingsModal.classList.remove("active");
+                publicKeyModal.classList.add("active");
+
+                const publicKeyHex = Array.from(currentPublicKey)
+                    .map((b) => b.toString(16).padStart(2, "0"))
+                    .join("");
+
+                try {
+                    await QRCode.toCanvas(qrCanvas, publicKeyHex, {
+                        width: 300,
+                        margin: 2,
+                        color: {
+                            dark: "#2d3748",
+                            light: "#ffffff",
+                        },
+                    });
+                } catch (error) {
+                    console.error("QR generation error:", error);
+                }
+
+                publicKeyPreview.textContent =
+                    publicKeyHex.substring(0, 20) +
+                    "..." +
+                    publicKeyHex.substring(publicKeyHex.length - 20);
+            });
+
+            closePublicKeyBtn.addEventListener("click", () => {
+                publicKeyModal.classList.remove("active");
+            });
+
+            copyPublicKeyBtn.addEventListener("click", async () => {
+                const publicKeyHex = Array.from(currentPublicKey)
+                    .map((b) => b.toString(16).padStart(2, "0"))
+                    .join("");
+
+                try {
+                    await navigator.clipboard.writeText(publicKeyHex);
+                    showToast("Public key copied to clipboard", "success");
+                } catch (error) {
+                    showToast("Failed to copy", "error");
+                }
+            });
+
+            sharePublicKeyBtn.addEventListener("click", async () => {
+                const publicKeyHex = Array.from(currentPublicKey)
+                    .map((b) => b.toString(16).padStart(2, "0"))
+                    .join("");
+
+                const isWindows =
+                    /Win/.test(navigator.platform) ||
+                    navigator.userAgent.includes("Windows");
+
+                if (isWindows) {
+                    try {
+                        await navigator.clipboard.writeText(publicKeyHex);
+                        showToast("Public key copied to clipboard", "success");
+                    } catch (error) {
+                        showToast("Failed to copy to clipboard", "error");
+                    }
+                } else {
+                    if (navigator.share) {
+                        try {
+                            await navigator.share({
+                                title: "My Public Key",
+                                text: publicKeyHex,
+                            });
+                        } catch (error) {
+                            if (error.name !== "AbortError") {
+                                await navigator.clipboard.writeText(
+                                    publicKeyHex,
+                                );
+                                showToast(
+                                    "Public key copied to clipboard",
+                                    "success",
+                                );
+                            }
+                        }
+                    } else {
+                        await navigator.clipboard.writeText(publicKeyHex);
+                        showToast("Public key copied to clipboard", "success");
+                    }
+                }
+            });
+
+            // ==================== MANAGE DATA MODAL ====================
+            manageDataExportNotesBtn.addEventListener("click", () => {
+                manageDataModal.classList.remove("active");
+                exportBtn.click();
+            });
+
+            manageDataImportNotesBtn.addEventListener("click", () => {
+                manageDataModal.classList.remove("active");
+                importBtn.click();
+            });
+
+            manageDataExportContactsBtn.addEventListener("click", () => {
+                try {
+                    const contacts = getContacts();
+
+                    if (contacts.length === 0) {
+                        showToast("No contacts to export", "error");
+                        return;
+                    }
+
+                    const exportData = {
+                        version: "1.0",
+                        exportDate: new Date().toISOString(),
+                        contactsCount: contacts.length,
+                        contacts: contacts,
+                    };
+
+                    const jsonString = JSON.stringify(exportData, null, 2);
+                    const blob = new Blob([jsonString], {
+                        type: "application/json",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = `r1do-contacts-backup-${new Date().toISOString().split("T")[0]}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+
+                    manageDataModal.classList.remove("active");
+                    showToast(
+                        `Exported ${contacts.length} contact(s)`,
+                        "success",
+                    );
+                } catch (error) {
+                    console.error("Export contacts error:", error);
+                    showToast("Failed to export contacts", "error");
+                }
+            });
+
+            manageDataImportContactsBtn.addEventListener("click", () => {
+                importContactsFileInput.click();
+            });
+
+            importContactsFileInput.addEventListener(
+                "change",
+                async (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    event.target.value = "";
+
+                    try {
+                        const fileContent = await file.text();
+                        const importedData = JSON.parse(fileContent);
+
+                        if (
+                            !importedData.contacts ||
+                            !Array.isArray(importedData.contacts)
+                        ) {
+                            throw new Error("Invalid contacts file format");
+                        }
+
+                        const currentContacts = getContacts();
+                        const importCount = importedData.contacts.length;
+
+                        if (currentContacts.length > 0) {
+                            const merge = confirm(
+                                `You have ${currentContacts.length} contact(s).\n\n` +
+                                    `Import ${importCount} contact(s)?\n\n` +
+                                    `OK = Merge (add to existing)\n` +
+                                    `Cancel = Abort import`,
+                            );
+
+                            if (!merge) {
+                                showToast("Import cancelled", "info");
+                                return;
+                            }
+                        }
+
+                        importedData.contacts.forEach((contact) => {
+                            const exists = currentContacts.some(
+                                (c) => c.publicKey === contact.publicKey,
+                            );
+                            if (!exists) {
+                                saveContact(contact.name, contact.publicKey);
+                            }
+                        });
+
+                        manageDataModal.classList.remove("active");
+                        showToast(
+                            `Imported ${importCount} contact(s)`,
+                            "success",
+                        );
+                    } catch (error) {
+                        console.error("Import contacts error:", error);
+                        showToast(
+                            "Failed to import contacts: " + error.message,
+                            "error",
+                        );
+                    }
+                },
+            );
+
+            manageDataExportAccountsBtn.addEventListener("click", async () => {
+                try {
+                    const accounts = await listCredentials();
+
+                    if (accounts.length === 0) {
+                        showToast("No accounts to export", "error");
+                        return;
+                    }
+
+                    const exportData = {
+                        version: "1.0",
+                        exportDate: new Date().toISOString(),
+                        accountsCount: accounts.length,
+                        accounts: accounts,
+                    };
+
+                    const jsonString = JSON.stringify(exportData, null, 2);
+                    const blob = new Blob([jsonString], {
+                        type: "application/json",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.href = url;
+                    link.download = `r1do.accounts-backup-${new Date().toISOString().split("T")[0]}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+
+                    manageDataModal.classList.remove("active");
+                    showToast(
+                        `Exported ${accounts.length} account(s)`,
+                        "success",
+                    );
+                } catch (error) {
+                    console.error("Export accounts error:", error);
+                    showToast("Failed to export accounts", "error");
+                }
+            });
+
+            manageDataImportAccountsBtn.addEventListener("click", () => {
+                importAccountsFileInput.click();
+            });
+
+            importAccountsFileInput.addEventListener(
+                "change",
+                async (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    event.target.value = "";
+
+                    try {
+                        const fileContent = await file.text();
+                        const importedData = JSON.parse(fileContent);
+
+                        if (
+                            !importedData.accounts ||
+                            !Array.isArray(importedData.accounts)
+                        ) {
+                            throw new Error("Invalid accounts file format");
+                        }
+
+                        const currentAccounts = await listCredentials();
+                        const importCount = importedData.accounts.length;
+
+                        if (currentAccounts.length > 0) {
+                            const merge = confirm(
+                                `You have ${currentAccounts.length} account(s).\n\n` +
+                                    `Import ${importCount} account(s)?\n\n` +
+                                    `OK = Merge (add to existing)\n` +
+                                    `Cancel = Abort import`,
+                            );
+
+                            if (!merge) {
+                                showToast("Import cancelled", "info");
+                                return;
+                            }
+                        }
+
+                        await importCredentials(importedData.accounts);
+                        await renderExistingUsers();
+
+                        manageDataModal.classList.remove("active");
+                        showToast(
+                            `Imported ${importCount} account(s)`,
+                            "success",
+                        );
+                    } catch (error) {
+                        console.error("Import accounts error:", error);
+                        showToast(
+                            "Failed to import accounts: " + error.message,
+                            "error",
+                        );
+                    }
+                },
+            );
+
+            // Clear all data
+            settingsClearBtn.addEventListener("click", () => {
+                settingsModal.classList.remove("active");
+                showModal(
+                    "Clear All Data",
+                    "This will delete ALL notes, contacts, and credentials. This action CANNOT be undone!\n\nAre you absolutely sure?",
+                    () => {
+                        showModal(
+                            "FINAL CONFIRMATION",
+                            "This is your last chance. Delete EVERYTHING?",
+                            async () => {
+                                clearAllNotes();
+                                clearAllContacts();
+
+                                // Clear the credential store
+                                R1DO.deleteDatabases();
+
+                                settingsModal.classList.remove("active");
+                                showToast("All data cleared", "success");
+
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 1500);
+                            },
+                        );
+                    },
+                );
+            });
+
+            // Import accounts btn always available
+            importAccountsFooterBtn.addEventListener("click", () => {
+                importAccountsFileInput.click();
+            });
+
+            // ==================== INIT ====================
+            (async () => {
+                try {
+                    if (!window.PublicKeyCredential) {
+                        showToast("WebAuthn not supported", "error");
+                        loginBtn.disabled = true;
+                        return;
+                    }
+
+                    await initDB();
+                    await renderExistingUsers();
+                } catch (error) {
+                    console.error(error);
+                    showToast("Initialization failed", "error");
+                }
+            })();
+        </script>
+        <script defer src="/_vercel/insights/script.js"></script>
+    </body>
+</html>
