@@ -290,13 +290,13 @@
                 <h2>Your identity</h2>
                 <input id="username" type="text" placeholder="username" autocomplete="off" spellcheck="false" />
                 <label class="switch-row">
-                    <span class="switch-label">more privacy</span>
+                    <span class="switch-label">Sync with Google / Apple</span>
                     <span class="switch">
-                        <input id="device-bound" type="checkbox" />
+                        <input id="sync-passkey" type="checkbox" checked />
                         <span class="slider"></span>
                     </span>
                 </label>
-                <p class="switch-hint">Device-bound (non-discoverable · this device only, not synced)</p>
+                <p class="switch-hint">Off = Device-bound (non-discoverable · this device only, not synced)</p>
                 <button id="create-passkey">Create passkey</button>
                 <p id="status" class="status"></p>
             </div>

@@ -34,7 +34,8 @@ btn.addEventListener("click", async () => {
     setStatus("Enter a username first.", "err");
     return;
   }
-  const deviceBound = byId("device-bound").checked;
+  // Switch ON = "Sync with Google/Apple" → discoverable/synced. OFF = device-bound.
+  const deviceBound = !byId("sync-passkey").checked;
   btn.disabled = true;
   setStatus("Creating your passkey…");
   try {
