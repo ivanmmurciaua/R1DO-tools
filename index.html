@@ -57,7 +57,9 @@
             }
 
             /* ── Identity (passkey) ── */
+            /* Hidden by default; main.js reveals it ONLY when R1DOToolsDB is empty. */
             .identity {
+                display: none;
                 background: #ffffff;
                 border: 1px solid #e0e0e0;
                 border-radius: 12px;
@@ -87,21 +89,69 @@
                 border-color: #94a3b8;
             }
 
-            .toggle {
+            /* Visual switch — "more privacy" (device-bound / non-discoverable) */
+            .switch-row {
                 display: flex;
-                align-items: flex-start;
-                gap: 8px;
-                font-size: 12px;
-                color: #64748b;
-                margin-bottom: 12px;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 6px;
                 cursor: pointer;
-                line-height: 1.4;
             }
 
-            .toggle input {
-                width: auto;
-                margin: 2px 0 0 0;
+            .switch-label {
+                font-size: 13px;
+                color: #475569;
+            }
+
+            .switch-hint {
+                font-size: 11px;
+                color: #94a3b8;
+                line-height: 1.4;
+                margin: 0 0 14px 0;
+            }
+
+            .switch {
+                position: relative;
+                display: inline-block;
+                width: 40px;
+                height: 22px;
                 flex-shrink: 0;
+            }
+
+            .switch input {
+                position: absolute;
+                opacity: 0;
+                width: 0;
+                height: 0;
+                margin: 0;
+            }
+
+            .switch .slider {
+                position: absolute;
+                inset: 0;
+                background: #cbd5e0;
+                border-radius: 22px;
+                transition: background 0.2s ease;
+            }
+
+            .switch .slider::before {
+                content: "";
+                position: absolute;
+                height: 18px;
+                width: 18px;
+                left: 2px;
+                top: 2px;
+                background: #ffffff;
+                border-radius: 50%;
+                transition: transform 0.2s ease;
+            }
+
+            .switch input:checked + .slider {
+                background: #1a1a1a;
+            }
+
+            .switch input:checked + .slider::before {
+                transform: translateX(18px);
             }
 
             .identity button {
@@ -239,10 +289,14 @@
             <div class="identity">
                 <h2>Your identity</h2>
                 <input id="username" type="text" placeholder="username" autocomplete="off" spellcheck="false" />
-                <label class="toggle">
-                    <input id="device-bound" type="checkbox" />
-                    <span>Device-bound (non-discoverable · this device only, not synced)</span>
+                <label class="switch-row">
+                    <span class="switch-label">more privacy</span>
+                    <span class="switch">
+                        <input id="device-bound" type="checkbox" />
+                        <span class="slider"></span>
+                    </span>
                 </label>
+                <p class="switch-hint">Device-bound (non-discoverable · this device only, not synced)</p>
                 <button id="create-passkey">Create passkey</button>
                 <p id="status" class="status"></p>
             </div>
@@ -270,7 +324,5 @@
         </div>
 
         <script type="module" src="/src/main.js"></script>
-        <!-- Vercel Web Analytics (same-origin /_vercel/insights, sin cookies/PII) -->
-        <script defer src="/_vercel/insights/script.js"></script>
     </body>
 </html>
