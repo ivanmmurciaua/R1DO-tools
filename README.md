@@ -18,16 +18,6 @@ desplegable en Vercel.
   env var ni broker.)
 - El store de credenciales es `R1DOToolsDB` (IndexedDB, por-origen).
 
-## Wallet (pendiente)
-La card de Wallet está **deshabilitada**. Llegará como `r1do.com/wallet` vía un
-**rewrite de Vercel** que proxya al deployment del wallet (Next, su propio repo,
-con `basePath="/wallet"`) → mismo origen → comparte identidad sin broker.
-
-```jsonc
-// futuro, en vercel.json:
-// { "rewrites": [{ "source": "/wallet/:path*", "destination": "https://<wallet-deploy>/wallet/:path*" }] }
-```
-
 ## Deploy (Vercel)
 - Framework: **Vite** (auto). Build: `npm run build`, output: `dist`.
 - `cleanUrls` activo → `/notes`, `/tasks`, `/chat` (sin `.html`).
