@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="referrer" content="no-referrer" />
         <title>R1DO Notes</title>
         <style>
             * {
@@ -677,6 +678,16 @@
                 height: auto;
                 border-radius: 6px;
                 margin: 1em 0;
+            }
+
+            /* Stand-in for a remote image the preview refused to load */
+            .markdown-preview .blocked-remote {
+                display: inline-block;
+                padding: 2px 6px;
+                border: 1px dashed #cbd5e0;
+                border-radius: 4px;
+                color: #a0aec0;
+                font-size: 12px;
             }
 
             .markdown-preview hr {
@@ -1421,6 +1432,27 @@
                         </div>
                     </button>
 
+                    <button class="settings-item" id="settingsLinkPreviewsBtn">
+                        <div style="font-size: 20px">🔗</div>
+                        <div>
+                            <div
+                                id="settingsLinkPreviewsLabel"
+                                style="
+                                    font-weight: 600;
+                                    font-size: 14px;
+                                    color: #2d3748;
+                                "
+                            >
+                                Link previews: off
+                            </div>
+                            <div style="font-size: 12px; color: #718096">
+                                When on, every URL you type in a note is sent
+                                to microlink.io (a third party) to fetch its
+                                title.
+                            </div>
+                        </div>
+                    </button>
+
                     <button
                         class="settings-item"
                         id="settingsClearBtn"
@@ -1882,6 +1914,7 @@
         <script type="module">
             import QRCode from "./js/qrcode.js";
             import { marked } from "./js/marked.js";
+            import DOMPurify from "./js/dompurify-3.4.17.js";
             import * as R1DO from "./js/r1do-auth.js";
 
             marked.setOptions({
@@ -1952,6 +1985,12 @@
             );
             const settingsPublicKeyBtn = document.getElementById(
                 "settingsPublicKeyBtn",
+            );
+            const settingsLinkPreviewsBtn = document.getElementById(
+                "settingsLinkPreviewsBtn",
+            );
+            const settingsLinkPreviewsLabel = document.getElementById(
+                "settingsLinkPreviewsLabel",
             );
             const settingsClearBtn =
                 document.getElementById("settingsClearBtn");
@@ -2042,11 +2081,113 @@
             }
 
             // ==================== MARKDOWN FUNCTIONS ====================
+            // Note content can come from a contact (shared notes) or an
+            // import, so the rendered markdown is untrusted: marked does not
+            // sanitize, DOMPurify does. On top of that the preview never
+            // loads remote resources (tracking pixels, IP leaks): only
+            // data:/blob: sources are kept, remote images become a
+            // placeholder.
+            const PREVIEW_PURIFY = {
+                FORBID_TAGS: ["style", "form"],
+                FORBID_ATTR: ["ping", "action", "formaction"],
+                RETURN_DOM_FRAGMENT: true,
+            };
+            const BLOCKED_SRC_ATTR = "data-r1do-blocked-src";
+            const LINK_PROTOCOLS = ["http:", "https:", "mailto:"];
+
+            const isLocalResource = (url) => /^\s*(data|blob):/i.test(url);
+
+            function safeLinkUrl(href) {
+                try {
+                    const parsed = new URL(href, document.baseURI);
+                    return LINK_PROTOCOLS.includes(parsed.protocol)
+                        ? parsed.href
+                        : null;
+                } catch {
+                    return null;
+                }
+            }
+
+            DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+                // The marker is ours only: never trust one from the input.
+                node.removeAttribute(BLOCKED_SRC_ATTR);
+                const tag = node.nodeName.toLowerCase();
+
+                for (const attr of ["src", "poster", "background"]) {
+                    const value = node.getAttribute(attr);
+                    if (value === null || isLocalResource(value)) continue;
+                    node.removeAttribute(attr);
+                    if (tag === "img" && attr === "src") {
+                        node.setAttribute(BLOCKED_SRC_ATTR, value);
+                    }
+                }
+                // Candidate lists are not worth parsing: src is enough.
+                node.removeAttribute("srcset");
+
+                const style = node.getAttribute("style");
+                if (style && /(url|image|image-set)\s*\(/i.test(style)) {
+                    node.removeAttribute("style");
+                }
+
+                if (tag === "a" || tag === "area") {
+                    const href = node.getAttribute("href");
+                    if (href !== null && !safeLinkUrl(href)) {
+                        node.removeAttribute("href");
+                    }
+                    node.setAttribute("rel", "noopener noreferrer");
+                    if (href && !href.startsWith("#")) {
+                        node.setAttribute("target", "_blank");
+                    }
+                } else {
+                    // SVG <image>/<use> and friends: in-document refs only.
+                    for (const attr of ["href", "xlink:href"]) {
+                        const value = node.getAttribute(attr);
+                        if (value !== null && !value.startsWith("#")) {
+                            node.removeAttribute(attr);
+                        }
+                    }
+                }
+            });
+
+            // Turn the images the hook blocked into an inert placeholder: a
+            // link to open the image in a new tab, or plain text when the
+            // image already sits inside a link.
+            function replaceBlockedImages(fragment) {
+                for (const img of fragment.querySelectorAll(
+                    `img[${BLOCKED_SRC_ATTR}]`,
+                )) {
+                    const doc = img.ownerDocument;
+                    const url = safeLinkUrl(img.getAttribute(BLOCKED_SRC_ATTR));
+                    const alt = img.getAttribute("alt") || "";
+                    const inLink = img.closest("a");
+                    const placeholder = doc.createElement(
+                        url && !inLink ? "a" : "span",
+                    );
+                    placeholder.className = "blocked-remote";
+                    placeholder.textContent = `[remote image blocked${alt ? ": " + alt : ""}]`;
+                    if (url && !inLink) {
+                        placeholder.href = url;
+                        placeholder.target = "_blank";
+                        placeholder.rel = "noopener noreferrer";
+                        placeholder.title = "Open the image in a new tab";
+                    }
+                    img.replaceWith(placeholder);
+                }
+            }
+
+            function renderMarkdown(markdown) {
+                const fragment = DOMPurify.sanitize(
+                    marked.parse(markdown),
+                    PREVIEW_PURIFY,
+                );
+                replaceBlockedImages(fragment);
+                return fragment;
+            }
+
             function updatePreview() {
                 const markdown = noteContent.value;
                 try {
-                    const html = marked.parse(markdown);
-                    markdownPreview.innerHTML = html;
+                    markdownPreview.replaceChildren(renderMarkdown(markdown));
                 } catch (error) {
                     markdownPreview.innerHTML =
                         '<p style="color: #c53030;">Error rendering markdown</p>';
@@ -2058,6 +2199,27 @@
             let previewCache = {};
             let lastProcessedText = "";
             let isGeneratingPreview = false;
+
+            // Link previews send each typed URL to microlink.io, a third
+            // party, so they are opt-in. Stored as "on" or absent.
+            const LINK_PREVIEWS_KEY = "r1do/notes/linkPreviews";
+
+            function linkPreviewsEnabled() {
+                try {
+                    return localStorage.getItem(LINK_PREVIEWS_KEY) === "on";
+                } catch {
+                    return false;
+                }
+            }
+
+            function setLinkPreviewsEnabled(on) {
+                try {
+                    if (on) localStorage.setItem(LINK_PREVIEWS_KEY, "on");
+                    else localStorage.removeItem(LINK_PREVIEWS_KEY);
+                } catch (error) {
+                    console.warn("Could not persist link previews:", error);
+                }
+            }
 
             function sanitizeMetadata(metadata) {
                 if (!metadata) return null;
@@ -2122,6 +2284,8 @@
             }
 
             async function fetchUrlMetadata(url) {
+                if (!linkPreviewsEnabled()) return null;
+
                 try {
                     const parsed = new URL(url);
                     if (
@@ -2195,21 +2359,8 @@
                 const safe = sanitizeMetadata(metadata);
                 if (!safe) return "";
 
+                // Title link only: the preview blocks remote images anyway.
                 let preview = "\n\n---\n\n";
-
-                if (safe.image) {
-                    const escapedTitle = safe.title.replace(
-                        /[\[\]()]/g,
-                        "\\$&",
-                    );
-                    const escapedImage = safe.image.replace(
-                        /[\[\]()]/g,
-                        "\\$&",
-                    );
-                    const escapedUrl = safe.url.replace(/[\[\]()]/g, "\\$&");
-
-                    preview += `[![${escapedTitle}](${escapedImage})](${escapedUrl})\n\n`;
-                }
 
                 const escapedTitle = safe.title.replace(/[\[\]()]/g, "\\$&");
                 const escapedUrl = safe.url.replace(/[\[\]()]/g, "\\$&");
@@ -2237,13 +2388,19 @@
                 updatePreview();
                 clearTimeout(urlDetectionTimeout);
 
+                if (!linkPreviewsEnabled()) {
+                    // Nothing typed while off is sent once turned on.
+                    lastProcessedText = noteContent.value;
+                    return;
+                }
+
                 urlDetectionTimeout = setTimeout(async () => {
                     await detectAndGenerateUrlPreviews();
                 }, 2000);
             });
 
             async function detectAndGenerateUrlPreviews() {
-                if (isGeneratingPreview) return;
+                if (isGeneratingPreview || !linkPreviewsEnabled()) return;
 
                 const currentText = noteContent.value;
                 if (currentText === lastProcessedText) return;
@@ -2571,15 +2728,15 @@
                         return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
                         <div style="flex: 1; min-width: 0;">
-                            <div style="font-weight: 500; font-size: 14px; color: #2d3748;">${contact.name}</div>
-                            <div style="font-size: 11px; color: #a0aec0; font-family: monospace; margin-top: 2px; overflow: hidden; text-overflow: ellipsis;">${shortKey}</div>
-                            <div style="font-size: 11px; color: #a0aec0; margin-top: 2px;">Added: ${date}</div>
+                            <div style="font-weight: 500; font-size: 14px; color: #2d3748;">${escapeHtml(contact.name)}</div>
+                            <div style="font-size: 11px; color: #a0aec0; font-family: monospace; margin-top: 2px; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(shortKey)}</div>
+                            <div style="font-size: 11px; color: #a0aec0; margin-top: 2px;">Added: ${escapeHtml(date)}</div>
                         </div>
                         <div style="display: flex; gap: 4px;">
-                            <button class="use-contact-btn" data-contact-id="${contact.id}" style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap;">
+                            <button class="use-contact-btn" data-contact-id="${escapeHtml(contact.id)}" style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap;">
                                 Use
                             </button>
-                            <button class="delete-contact-btn" data-contact-id="${contact.id}" style="padding: 6px 12px; background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                            <button class="delete-contact-btn" data-contact-id="${escapeHtml(contact.id)}" style="padding: 6px 12px; background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 4px; font-size: 12px; cursor: pointer;">
                                 Delete
                             </button>
                         </div>
@@ -2754,6 +2911,23 @@
             }
 
             // ==================== UI HELPERS ====================
+            // For every value interpolated into an HTML template: titles,
+            // previews, contact names and ids can come from shared notes or
+            // imported files.
+            function escapeHtml(value) {
+                return String(value ?? "").replace(
+                    /[&<>"']/g,
+                    (c) =>
+                        ({
+                            "&": "&amp;",
+                            "<": "&lt;",
+                            ">": "&gt;",
+                            '"': "&quot;",
+                            "'": "&#39;",
+                        })[c],
+                );
+            }
+
             async function renderExistingUsers() {
                 try {
                     const credentials = await listCredentials();
@@ -2771,9 +2945,9 @@
                                     cred.createdAt,
                                 ).toLocaleDateString();
                                 return `
-                            <button class="user-item-btn" data-username="${cred.username}">
-                                <div style="font-weight: 500;">${cred.username}</div>
-                                <div style="font-size: 11px; color: #a0aec0; margin-top: 2px;">Created: ${date}</div>
+                            <button class="user-item-btn" data-username="${escapeHtml(cred.username)}">
+                                <div style="font-weight: 500;">${escapeHtml(cred.username)}</div>
+                                <div style="font-size: 11px; color: #a0aec0; margin-top: 2px;">Created: ${escapeHtml(date)}</div>
                             </button>
                         `;
                             })
@@ -2890,10 +3064,10 @@
                             ).toLocaleDateString();
                             const isActive = note.id === currentNoteId;
                             return `
-                        <div class="note-item ${isActive ? "active" : ""}" data-note-id="${note.id}">
-                            <div class="note-title">${note.title}</div>
-                            <div class="note-preview">${note.preview}</div>
-                            <div class="note-date">${date}</div>
+                        <div class="note-item ${isActive ? "active" : ""}" data-note-id="${escapeHtml(note.id)}">
+                            <div class="note-title">${escapeHtml(note.title)}</div>
+                            <div class="note-preview">${escapeHtml(note.preview)}</div>
+                            <div class="note-date">${escapeHtml(date)}</div>
                         </div>
                     `;
                         })
@@ -3466,6 +3640,29 @@
                 settingsModal.classList.remove("active");
                 manageDataModal.classList.add("active");
             });
+
+            function renderLinkPreviewsSetting() {
+                settingsLinkPreviewsLabel.textContent = `Link previews: ${
+                    linkPreviewsEnabled() ? "on" : "off"
+                }`;
+            }
+
+            settingsLinkPreviewsBtn.addEventListener("click", () => {
+                const on = !linkPreviewsEnabled();
+                setLinkPreviewsEnabled(on);
+                // Drop a pending lookup, and never send URLs typed before.
+                clearTimeout(urlDetectionTimeout);
+                lastProcessedText = noteContent.value;
+                renderLinkPreviewsSetting();
+                showToast(
+                    on
+                        ? "Link previews on: typed URLs go to microlink.io"
+                        : "Link previews off",
+                    "info",
+                );
+            });
+
+            renderLinkPreviewsSetting();
 
             closeManageDataBtn.addEventListener("click", () => {
                 manageDataModal.classList.remove("active");
