@@ -2,7 +2,7 @@
    r1do-auth.js — shared auth + key-derivation module for the R1DO suite
    (notes.html · tasks.html · chat.html · R1DO Wallet)
 
-   One passkey per user (resident, PRF-capable) unlocks every tool.
+   One passkey per user (PRF-capable; discoverable by default, or device-bound) unlocks every tool.
    All keys derive from a single PRF evaluation (salt "r1do-suite-v1")
    through real HKDF-SHA256 with per-app `info` labels, so each tool
    gets an independent key tree from the same credential.
@@ -173,7 +173,11 @@ export function deleteDatabases() {
 
 /* ───────────────────────── WebAuthn (PRF) ────────────────────────── */
 
-export async function registerPasskey(username) {
+// `deviceBound = true` → NON-discoverable (device-bound, not synced to the cloud;
+// requires the rawId/allowCredentials at login — kept in R1DOToolsDB). `false`
+// (default) → discoverable/resident (works across *.r1do.com by rpId alone, but
+// typically synced). Mirrors the wallet's two paths so the whole suite can choose.
+export async function registerPasskey(username, { deviceBound = false } = {}) {
     const userId = utf8ToBytes(username).slice(0, 64); // userHandle = username
     const credential = await navigator.credentials.create({
         publicKey: {
@@ -181,11 +185,17 @@ export async function registerPasskey(username) {
             rp: { name: "R1DO Tools", id: window.location.hostname },
             user: { id: userId, name: username, displayName: username },
             pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-            authenticatorSelection: {
-                userVerification: "preferred",
-                requireResidentKey: true,
-                residentKey: "required",
-            },
+            authenticatorSelection: deviceBound
+                ? {
+                      userVerification: "preferred",
+                      requireResidentKey: false,
+                      residentKey: "discouraged",
+                  }
+                : {
+                      userVerification: "preferred",
+                      requireResidentKey: true,
+                      residentKey: "required",
+                  },
             timeout: 60000,
             attestation: "none",
             extensions: { prf: {} },
