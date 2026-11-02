@@ -9,8 +9,14 @@ export default defineConfig(({ mode }) => {
   const ipfs = mode === "ipfs";
   return {
     base: ipfs ? "./" : "/",
-    build: { outDir: ipfs ? "dist-ipfs" : "dist", emptyOutDir: true },
+    // es2022 (top-level await in src/main.js): WebAuthn PRF already requires Chrome 132+,
+    // Safari 17.4+ or Firefox 130+, so no supported browser is lost.
+    build: { outDir: ipfs ? "dist-ipfs" : "dist", emptyOutDir: true, target: "es2022" },
     plugins: ipfs ? [ipfsHtml()] : [],
+    // Test from a phone through an ngrok HTTPS tunnel (WebAuthn needs HTTPS + a real hostname).
+    // A leading dot matches every subdomain, i.e. https://*.ngrok-free.app.
+    server: { allowedHosts: [".ngrok-free.app"] },
+    preview: { allowedHosts: [".ngrok-free.app"] },
   };
 });
 

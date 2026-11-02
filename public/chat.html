@@ -885,11 +885,11 @@
         <!-- Toast -->
         <div class="toast" id="toast"></div>
 
-        <!-- Importmap for Waku SDK -->
+        <!-- Importmap for Waku SDK: served from this origin (vendored, see js/VENDORED.md), not from a CDN. -->
         <script type="importmap">
             {
                 "imports": {
-                    "@waku/sdk": "https://unpkg.com/@waku/sdk@0.0.31/bundle/index.js"
+                    "@waku/sdk": "./js/waku-sdk-0.0.31.js"
                 }
             }
         </script>
