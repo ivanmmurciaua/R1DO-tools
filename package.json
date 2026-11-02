@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:ipfs": "vite build --mode ipfs",
     "preview": "vite preview"
   },
   "devDependencies": {
