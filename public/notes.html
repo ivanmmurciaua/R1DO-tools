@@ -805,6 +805,23 @@
                 justify-content: center;
             }
 
+            /* Full-screen QR (tap the QR in "My Public Key"): white
+               backdrop = quiet zone, the code as large as the screen. */
+            .qr-fullscreen {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: #ffffff;
+                z-index: 1100;
+                align-items: center;
+                justify-content: center;
+                cursor: zoom-out;
+            }
+
+            .qr-fullscreen.active {
+                display: flex;
+            }
+
             .modal.active {
                 display: flex;
             }
@@ -1091,7 +1108,7 @@
             <div class="sidebar" id="sidebar">
                 <div class="sidebar-header">
                     <div class="header-top">
-                        <h1 class="app-title">R1DO Notes v2</h1>
+                        <h1 class="app-title">R1DO Notes</h1>
                         <button
                             class="contacts-icon"
                             id="contactsIconBtn"
@@ -1696,7 +1713,7 @@
         </div>
 
         <div class="modal" id="publicKeyModal">
-            <div class="modal-content" style="max-width: 400px">
+            <div class="modal-content" style="max-width: 480px">
                 <div
                     style="
                         display: flex;
@@ -1720,15 +1737,25 @@
                     </button>
                 </div>
 
-                <div style="text-align: center">
+                <div style="text-align: center" id="qrBox">
                     <canvas
                         id="qrCanvas"
+                        title="Tap to enlarge"
                         style="
                             max-width: 100%;
                             border-radius: 8px;
-                            margin-bottom: 16px;
+                            cursor: zoom-in;
                         "
                     ></canvas>
+                    <div
+                        style="
+                            font-size: 12px;
+                            color: #718096;
+                            margin-bottom: 16px;
+                        "
+                    >
+                        Tap the QR to enlarge it for scanning
+                    </div>
 
                     <div
                         style="
@@ -1740,6 +1767,7 @@
                             font-family: monospace;
                             font-size: 11px;
                             color: #4a5568;
+                            white-space: pre-line;
                         "
                         id="publicKeyPreview"
                     ></div>
@@ -1787,11 +1815,16 @@
                             line-height: 1.5;
                         "
                     >
-                        Share this key with others so they can send you
-                        encrypted notes.
+                        Share this key (R1DO v3 card, post-quantum) with
+                        others so they can send you encrypted notes. The QR
+                        holds a compact form; compare the fingerprint.
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div class="qr-fullscreen" id="qrFullscreen">
+            <canvas id="qrCanvasFull"></canvas>
         </div>
 
         <div class="modal" id="shareRecipientModal">
@@ -1868,12 +1901,12 @@
                             margin-bottom: 8px;
                         "
                     >
-                        Enter public key manually:
+                        Or paste an R1DO v3 card:
                     </label>
                     <input
                         type="text"
                         id="manualPublicKeyInput"
-                        placeholder="130 hex characters..."
+                        placeholder="r1do-id-v3:..."
                         style="
                             width: 100%;
                             padding: 10px 12px;
@@ -1931,8 +1964,9 @@
             let currentContactsKey = null;
             let currentUsername = null;
             let currentNoteId = null;
-            let currentPrivateKey = null;
-            let currentPublicKey = null;
+            // v3 identity (P-256 + ML-KEM-768 + ML-DSA-44) and its public card.
+            let currentIdentity = null;
+            let currentCard = null;
             let contactsCache = [];
             let notes = [];
 
@@ -2024,6 +2058,9 @@
             const closePublicKeyBtn =
                 document.getElementById("closePublicKeyBtn");
             const qrCanvas = document.getElementById("qrCanvas");
+            const qrBox = document.getElementById("qrBox");
+            const qrFullscreen = document.getElementById("qrFullscreen");
+            const qrCanvasFull = document.getElementById("qrCanvasFull");
             const publicKeyPreview =
                 document.getElementById("publicKeyPreview");
             const copyPublicKeyBtn =
@@ -2685,14 +2722,28 @@
                 );
             }
 
-            function saveContact(name, publicKey) {
+            // `keys` = R1DO.parsePublicIdentity(card or QR text):
+            // { p256, mlkem, mldsaHash, mldsaPk? }. Legacy contacts (v2,
+            // only `publicKey`) are kept as stored but cannot be used.
+            function saveContact(name, keys) {
                 contactsCache.push({
                     id: crypto.randomUUID(),
                     name: name,
-                    publicKey: publicKey,
-                    addedAt: new Date().toISOString(),
+                    p256: keys.p256,
+                    mlkem: keys.mlkem,
+                    mldsaHash: keys.mldsaHash,
+                    ...(keys.mldsaPk ? { mldsaPk: keys.mldsaPk } : {}),
+                    createdAt: new Date().toISOString(),
                 });
                 persistContacts();
+            }
+
+            function findContactByP256(p256Hex) {
+                const k = String(p256Hex).toLowerCase();
+                return contactsCache.find(
+                    (c) =>
+                        String(c.p256 ?? c.publicKey ?? "").toLowerCase() === k,
+                );
             }
 
             function deleteContact(contactId) {
@@ -2716,24 +2767,32 @@
 
                 contactsList.innerHTML = contacts
                     .map((contact) => {
-                        const shortKey =
-                            contact.publicKey.substring(0, 10) +
-                            "..." +
-                            contact.publicKey.substring(
-                                contact.publicKey.length - 10,
-                            );
+                        // Legacy (v2) contacts: kept, flagged, not usable.
+                        const isV3 = R1DO.isV3Contact(contact);
+                        const key = String(
+                            (isV3 ? contact.mldsaHash : contact.publicKey) ??
+                                "",
+                        );
+                        const shortKey = isV3
+                            ? "PQ " + R1DO.shortFingerprint(key)
+                            : key.substring(0, 10) +
+                              "..." +
+                              key.substring(key.length - 10);
                         const date = new Date(
-                            contact.addedAt,
+                            contact.createdAt ?? contact.addedAt,
                         ).toLocaleDateString();
+                        const legacyBadge = isV3
+                            ? ""
+                            : ' <span title="Saved with an old (v2) key: ask for their R1DO v3 card and add them again" style="font-size: 10px; font-weight: 500; color: #b7791f; background: #fefcbf; border: 1px solid #f6e05e; border-radius: 4px; padding: 1px 6px;">old key, re-add</span>';
                         return `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
                         <div style="flex: 1; min-width: 0;">
-                            <div style="font-weight: 500; font-size: 14px; color: #2d3748;">${escapeHtml(contact.name)}</div>
+                            <div style="font-weight: 500; font-size: 14px; color: #2d3748;">${escapeHtml(contact.name)}${legacyBadge}</div>
                             <div style="font-size: 11px; color: #a0aec0; font-family: monospace; margin-top: 2px; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(shortKey)}</div>
                             <div style="font-size: 11px; color: #a0aec0; margin-top: 2px;">Added: ${escapeHtml(date)}</div>
                         </div>
                         <div style="display: flex; gap: 4px;">
-                            <button class="use-contact-btn" data-contact-id="${escapeHtml(contact.id)}" style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; white-space: nowrap;">
+                            <button class="use-contact-btn" data-contact-id="${escapeHtml(contact.id)}" ${isV3 ? "" : 'disabled title="Old key: add this contact again from their v3 card"'} style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: ${isV3 ? "pointer" : "not-allowed"}; opacity: ${isV3 ? "1" : "0.4"}; white-space: nowrap;">
                                 Use
                             </button>
                             <button class="delete-contact-btn" data-contact-id="${escapeHtml(contact.id)}" style="padding: 6px 12px; background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; border-radius: 4px; font-size: 12px; cursor: pointer;">
@@ -2792,12 +2851,20 @@
                         return;
                     }
 
+                    if (!R1DO.isV3Contact(contact)) {
+                        showToast(
+                            "Old key: add this contact again from their v3 card",
+                            "error",
+                        );
+                        return;
+                    }
+
                     showToast("Encrypting...", "info");
 
                     const fullContent = title + "\n" + content;
                     const encrypted = await encryptForRecipient(
                         fullContent,
-                        contact.publicKey,
+                        contact,
                     );
 
                     const encryptedText = btoa(JSON.stringify(encrypted));
@@ -2849,28 +2916,26 @@
                 }
             }
 
-            // ==================== ECIES (v2: signed envelopes) ====================
-            // Shared-note envelopes are encrypted AND signed by the sender's
-            // identity key (module ECIES v2). Legacy unsigned envelopes from
-            // pre-v2 versions remain decryptable.
+            // ==================== ECIES (v3: hybrid PQ envelopes) ====================
+            // Shared-note envelopes are encrypted with P-256 ECDH + ML-KEM-768
+            // and signed with ECDSA P-256 + ML-DSA-44 (module ECIES v3).
+            // v2 envelopes are rejected with a clear message.
 
-            async function encryptForRecipient(message, recipientPublicKeyHex) {
-                return R1DO.eciesEncrypt({
+            // `recipient` = a v3 contact or parsePublicIdentity() result.
+            async function encryptForRecipient(message, recipient) {
+                return R1DO.eciesEncryptV3({
                     message,
-                    recipientPublicKeyHex,
-                    senderPrivateKey: currentPrivateKey,
-                    senderPublicKeyHex: Array.from(currentPublicKey)
-                        .map((b) => b.toString(16).padStart(2, "0"))
-                        .join(""),
+                    recipient,
+                    sender: currentIdentity,
                 });
             }
 
-            // Returns { text, senderPublicKeyHex, verified }.
-            async function decryptFromSender(encryptedPackage, myPrivateKey) {
+            // Returns { text, senderPublicKeyHex, senderMldsaHash, verified }.
+            async function decryptFromSender(encryptedPackage, myIdentity) {
                 try {
                     return await R1DO.decryptAnyEnvelope({
                         envelope: encryptedPackage,
-                        myPrivateKey,
+                        myIdentity,
                     });
                 } catch (error) {
                     console.error("Decryption error:", error);
@@ -3135,9 +3200,9 @@
                     // Identity (shared with chat) + per-purpose keys, all
                     // HKDF siblings — compromising one no longer exposes
                     // the others.
-                    const identity = await R1DO.deriveP256Identity(prfOutput);
-                    currentPrivateKey = identity.privateKey;
-                    currentPublicKey = Array.from(identity.publicKey);
+                    // v3: the same P-256 key as before + ML-KEM / ML-DSA.
+                    currentIdentity = await R1DO.deriveIdentityV3(prfOutput);
+                    currentCard = R1DO.encodeCard(currentIdentity);
 
                     currentAESKey = await R1DO.hkdfAesKey(
                         prfOutput,
@@ -3185,9 +3250,9 @@
                 currentContactsKey = null;
                 currentUsername = null;
                 currentNoteId = null;
-                R1DO.zeroize(currentPrivateKey);
-                currentPrivateKey = null;
-                currentPublicKey = null;
+                R1DO.zeroizeIdentity(currentIdentity);
+                currentIdentity = null;
+                currentCard = null;
                 contactsCache = [];
                 notes = [];
 
@@ -3211,17 +3276,13 @@
 
             // Copy public key
             userNameDisplay.addEventListener("click", async () => {
-                if (!currentPublicKey) {
+                if (!currentCard) {
                     showToast("No public key available", "error");
                     return;
                 }
 
                 try {
-                    const publicKeyHex = Array.from(currentPublicKey)
-                        .map((b) => b.toString(16).padStart(2, "0"))
-                        .join("");
-
-                    await navigator.clipboard.writeText(publicKeyHex);
+                    await navigator.clipboard.writeText(currentCard);
 
                     userNameDisplay.classList.add("copied");
                     const originalHint = userHint.textContent;
@@ -3316,8 +3377,14 @@
 
                 contacts.forEach((contact) => {
                     const option = document.createElement("option");
-                    option.value = contact.publicKey;
-                    option.textContent = contact.name;
+                    option.value = contact.id;
+                    if (R1DO.isV3Contact(contact)) {
+                        option.textContent = contact.name;
+                    } else {
+                        // Legacy (v2) contact: listed but not selectable.
+                        option.textContent = `${contact.name} (old key, re-add)`;
+                        option.disabled = true;
+                    }
                     recipientSelect.appendChild(option);
                 });
 
@@ -3340,34 +3407,35 @@
                     const title = noteTitle.value.trim() || "Untitled";
                     const content = noteContent.value.trim();
 
-                    let recipientPublicKey = null;
+                    let recipient = null;
                     let recipientName = null;
 
                     if (
                         recipientSelect.value &&
                         recipientSelect.value !== "manual"
                     ) {
-                        recipientPublicKey = recipientSelect.value;
-                        recipientName =
-                            recipientSelect.options[
-                                recipientSelect.selectedIndex
-                            ].text;
+                        const contact = getContacts().find(
+                            (c) => c.id === recipientSelect.value,
+                        );
+                        if (contact && R1DO.isV3Contact(contact)) {
+                            recipient = contact;
+                            recipientName = contact.name;
+                        }
                     } else if (manualPublicKeyInput.value.trim()) {
-                        recipientPublicKey = manualPublicKeyInput.value.trim();
+                        try {
+                            recipient = R1DO.parsePublicIdentity(
+                                manualPublicKeyInput.value,
+                            );
+                        } catch (e) {
+                            showToast(e.message, "error");
+                            return;
+                        }
                         recipientName = "recipient";
                     }
 
-                    if (!recipientPublicKey) {
+                    if (!recipient) {
                         showToast(
-                            "Please select a contact or enter a public key",
-                            "error",
-                        );
-                        return;
-                    }
-
-                    if (!/^[0-9a-fA-F]{130}$/.test(recipientPublicKey)) {
-                        showToast(
-                            "Invalid public key format (must be 130 hex characters)",
+                            "Please select a contact or paste an R1DO v3 card",
                             "error",
                         );
                         return;
@@ -3380,7 +3448,7 @@
                     const fullContent = title + "\n" + content;
                     const encrypted = await encryptForRecipient(
                         fullContent,
-                        recipientPublicKey,
+                        recipient,
                     );
 
                     const encryptedText = btoa(JSON.stringify(encrypted));
@@ -3442,7 +3510,7 @@
                         return;
                     }
 
-                    if (!currentPrivateKey) {
+                    if (!currentIdentity) {
                         showToast("You need to be logged in", "error");
                         return;
                     }
@@ -3452,7 +3520,7 @@
                     const encrypted = JSON.parse(atob(encryptedText));
                     const result = await decryptFromSender(
                         encrypted,
-                        currentPrivateKey,
+                        currentIdentity,
                     );
 
                     // Load in editor
@@ -3466,26 +3534,28 @@
 
                     sharedNoteInput.value = "";
 
-                    // Sender authentication (v2 envelopes are signed)
-                    if (result.verified === true) {
-                        const known = getContacts().find(
-                            (c) =>
-                                c.publicKey.toLowerCase() ===
-                                result.senderPublicKeyHex.toLowerCase(),
-                        );
+                    // Sender authentication: trusted only if BOTH signatures
+                    // are valid AND P-256 key + ML-DSA key hash match a
+                    // contact (module matchSender).
+                    const { trust, contact: known } = R1DO.matchSender(
+                        result,
+                        getContacts(),
+                    );
+                    if (trust === "trusted") {
                         showToast(
-                            known
-                                ? `Note decrypted — signed by ${known.name} ✓`
-                                : "Note decrypted — valid signature, sender not in contacts",
+                            `Note decrypted: signed by ${known.name} ✓`,
                             "success",
                         );
-                    } else if (result.verified === false) {
+                    } else if (trust === "unknown") {
+                        showToast(
+                            "Note decrypted: valid signatures, sender not in contacts",
+                            "success",
+                        );
+                    } else {
                         showToast(
                             "⚠ Decrypted, but the sender signature is INVALID",
                             "error",
                         );
-                    } else {
-                        showToast("Note decrypted", "success");
                     }
 
                     if (window.innerWidth <= 768) {
@@ -3494,7 +3564,9 @@
                 } catch (error) {
                     console.error("Decryption error:", error);
                     showToast(
-                        "Failed to decrypt note. Wrong key or corrupted data.",
+                        error.code === "R1DO_ENVELOPE_V2"
+                            ? "Cannot open: " + R1DO.V2_ENVELOPE_ERROR
+                            : "Failed to decrypt note. Wrong key or corrupted data.",
                         "error",
                     );
                 }
@@ -3676,23 +3748,48 @@
                 const name = prompt("Contact name:");
                 if (!name) return;
 
-                const publicKey = prompt(
-                    "Contact's public key (130 hex characters):",
+                const input = prompt(
+                    'Contact\'s R1DO v3 card ("r1do-id-v3:...") or QR text ("R1DO-QR-V3:..."):',
                 );
-                if (!publicKey) return;
+                if (!input) return;
 
-                if (!/^[0-9a-fA-F]{130}$/.test(publicKey)) {
-                    showToast("Invalid public key format", "error");
+                let keys;
+                try {
+                    keys = R1DO.parsePublicIdentity(input);
+                } catch (e) {
+                    showToast(e.message, "error");
                     return;
                 }
 
-                saveContact(name, publicKey);
+                // Re-adding someone saved with an old (v2) key replaces
+                // that entry; a v3 duplicate is refused.
+                const existing = findContactByP256(keys.p256);
+                if (existing && R1DO.isV3Contact(existing)) {
+                    showToast(
+                        `Already in contacts as "${existing.name}"`,
+                        "error",
+                    );
+                    return;
+                }
+                if (existing) deleteContact(existing.id);
+
+                saveContact(name, keys);
                 renderContactsList();
-                showToast("Contact added", "success");
+                showToast(
+                    keys.mldsaPk ? "Contact added" : "Contact added (from QR)",
+                    "success",
+                );
             });
 
+            // Short fingerprint of my card: compare it out of band.
+            function myFingerprint() {
+                return R1DO.shortFingerprint(
+                    R1DO.cardFingerprint(R1DO.encodeCardBytes(currentIdentity)),
+                );
+            }
+
             settingsPublicKeyBtn.addEventListener("click", async () => {
-                if (!currentPublicKey) {
+                if (!currentCard) {
                     showToast("No public key available", "error");
                     return;
                 }
@@ -3700,40 +3797,96 @@
                 settingsModal.classList.remove("active");
                 publicKeyModal.classList.add("active");
 
-                const publicKeyHex = Array.from(currentPublicKey)
-                    .map((b) => b.toString(16).padStart(2, "0"))
-                    .join("");
-
                 try {
-                    await QRCode.toCanvas(qrCanvas, publicKeyHex, {
-                        width: 300,
-                        margin: 2,
-                        color: {
-                            dark: "#2d3748",
-                            light: "#ffffff",
-                        },
-                    });
+                    await renderQr(qrCanvas, qrBox.clientWidth);
                 } catch (error) {
                     console.error("QR generation error:", error);
                 }
 
                 publicKeyPreview.textContent =
-                    publicKeyHex.substring(0, 20) +
+                    "Fingerprint: " +
+                    myFingerprint() +
+                    "\n" +
+                    currentCard.substring(0, 24) +
                     "..." +
-                    publicKeyHex.substring(publicKeyHex.length - 20);
+                    currentCard.substring(currentCard.length - 12);
             });
 
             closePublicKeyBtn.addEventListener("click", () => {
                 publicKeyModal.classList.remove("active");
             });
 
-            copyPublicKeyBtn.addEventListener("click", async () => {
-                const publicKeyHex = Array.from(currentPublicKey)
-                    .map((b) => b.toString(16).padStart(2, "0"))
-                    .join("");
+            // QR = the compact v3 payload (P-256 + ML-KEM + ML-DSA key
+            // hash) in its "R1DO-QR-V3:" base45 text form, as ONE
+            // alphanumeric segment: there is no in-app scanner, so a phone
+            // camera has to hand back text that can be pasted into "Add
+            // Contact". 1943 characters: version 30 (137 modules) at error
+            // correction M, version 26 (121 modules) at L. Use M when the
+            // space gives every module >= QR_MIN_MODULE_PX CSS px, else L,
+            // and draw a whole number of device pixels per module so the
+            // edges stay sharp.
+            const QR_MARGIN = 2; // modules; the white modal / backdrop extends the quiet zone
+            const QR_MIN_MODULE_PX = 3;
 
+            async function renderQr(canvas, availCssPx) {
+                const segments = [
+                    {
+                        data: R1DO.encodeQrText(currentIdentity),
+                        mode: "alphanumeric",
+                    },
+                ];
+                let ecc = "L";
+                let span = 0;
+                for (const level of ["M", "L"]) {
+                    ecc = level;
+                    span =
+                        QRCode.create(segments, { errorCorrectionLevel: level })
+                            .modules.size +
+                        2 * QR_MARGIN;
+                    if (availCssPx / span >= QR_MIN_MODULE_PX) break;
+                }
+                const dpr = window.devicePixelRatio || 1;
+                const scale = Math.max(
+                    1,
+                    Math.floor((availCssPx * dpr) / span),
+                );
+                await QRCode.toCanvas(canvas, segments, {
+                    errorCorrectionLevel: ecc,
+                    margin: QR_MARGIN,
+                    scale,
+                    color: { dark: "#000000", light: "#ffffff" },
+                });
+                const css = (span * scale) / dpr;
+                canvas.style.width = css + "px";
+                canvas.style.height = css + "px";
+            }
+
+            async function openQrFullscreen() {
+                if (!currentIdentity) return;
+                qrFullscreen.classList.add("active");
                 try {
-                    await navigator.clipboard.writeText(publicKeyHex);
+                    await renderQr(
+                        qrCanvasFull,
+                        Math.min(window.innerWidth, window.innerHeight),
+                    );
+                } catch (error) {
+                    console.error("QR generation error:", error);
+                    qrFullscreen.classList.remove("active");
+                }
+            }
+
+            qrCanvas.addEventListener("click", openQrFullscreen);
+            qrFullscreen.addEventListener("click", () => {
+                qrFullscreen.classList.remove("active");
+            });
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && qrFullscreen.classList.contains("active"))
+                    qrFullscreen.classList.remove("active");
+            });
+
+            copyPublicKeyBtn.addEventListener("click", async () => {
+                try {
+                    await navigator.clipboard.writeText(currentCard);
                     showToast("Public key copied to clipboard", "success");
                 } catch (error) {
                     showToast("Failed to copy", "error");
@@ -3741,9 +3894,7 @@
             });
 
             sharePublicKeyBtn.addEventListener("click", async () => {
-                const publicKeyHex = Array.from(currentPublicKey)
-                    .map((b) => b.toString(16).padStart(2, "0"))
-                    .join("");
+                const card = currentCard;
 
                 const isWindows =
                     /Win/.test(navigator.platform) ||
@@ -3751,7 +3902,7 @@
 
                 if (isWindows) {
                     try {
-                        await navigator.clipboard.writeText(publicKeyHex);
+                        await navigator.clipboard.writeText(card);
                         showToast("Public key copied to clipboard", "success");
                     } catch (error) {
                         showToast("Failed to copy to clipboard", "error");
@@ -3760,14 +3911,12 @@
                     if (navigator.share) {
                         try {
                             await navigator.share({
-                                title: "My Public Key",
-                                text: publicKeyHex,
+                                title: "My R1DO Public Key",
+                                text: card,
                             });
                         } catch (error) {
                             if (error.name !== "AbortError") {
-                                await navigator.clipboard.writeText(
-                                    publicKeyHex,
-                                );
+                                await navigator.clipboard.writeText(card);
                                 showToast(
                                     "Public key copied to clipboard",
                                     "success",
@@ -3775,7 +3924,7 @@
                             }
                         }
                     } else {
-                        await navigator.clipboard.writeText(publicKeyHex);
+                        await navigator.clipboard.writeText(card);
                         showToast("Public key copied to clipboard", "success");
                     }
                 }
@@ -3872,19 +4021,69 @@
                             }
                         }
 
+                        // v3 contacts get the same full key validation as
+                        // a card or QR (valid P-256 point, ML-KEM modulus
+                        // check); entries that look v3 but fail it are
+                        // rejected and counted. Old (v2) ones are kept as
+                        // they are (flagged "old key").
+                        let imported = 0;
+                        let rejected = 0;
+                        const looksV3 = (c) =>
+                            c?.p256 != null ||
+                            c?.mlkem != null ||
+                            c?.mldsaHash != null;
                         importedData.contacts.forEach((contact) => {
-                            const exists = currentContacts.some(
-                                (c) => c.publicKey === contact.publicKey,
-                            );
-                            if (!exists) {
-                                saveContact(contact.name, contact.publicKey);
+                            const name = String(contact?.name ?? "").trim();
+                            if (!name) {
+                                rejected++;
+                                return;
+                            }
+                            if (looksV3(contact)) {
+                                let keys;
+                                try {
+                                    keys = R1DO.validateV3Contact(contact);
+                                } catch {
+                                    rejected++;
+                                    return;
+                                }
+                                const existing = findContactByP256(keys.p256);
+                                if (existing && R1DO.isV3Contact(existing))
+                                    return;
+                                if (existing) deleteContact(existing.id);
+                                saveContact(name, keys);
+                                imported++;
+                            } else if (
+                                /^[0-9a-fA-F]{130}$/.test(
+                                    contact?.publicKey ?? "",
+                                ) &&
+                                !findContactByP256(contact.publicKey)
+                            ) {
+                                contactsCache.push({
+                                    id: crypto.randomUUID(),
+                                    name,
+                                    publicKey: contact.publicKey,
+                                    addedAt:
+                                        contact.addedAt ??
+                                        new Date().toISOString(),
+                                });
+                                persistContacts();
+                                imported++;
+                            } else if (
+                                !/^[0-9a-fA-F]{130}$/.test(
+                                    contact?.publicKey ?? "",
+                                )
+                            ) {
+                                rejected++;
                             }
                         });
 
                         manageDataModal.classList.remove("active");
                         showToast(
-                            `Imported ${importCount} contact(s)`,
-                            "success",
+                            `Imported ${imported} contact(s)` +
+                                (rejected
+                                    ? `, rejected ${rejected} invalid`
+                                    : ""),
+                            rejected ? "error" : "success",
                         );
                     } catch (error) {
                         console.error("Import contacts error:", error);

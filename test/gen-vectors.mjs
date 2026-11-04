@@ -8,6 +8,10 @@
 //
 //   node test/gen-vectors.mjs           # first time only
 //   node test/gen-vectors.mjs --force   # only for a DELIBERATE, versioned format change
+//
+// Historical record: the ECIES v2 envelope part below needs the v2 `eciesEncrypt`, which was
+// removed when envelopes moved to crypto v3 (test/gen-vectors-v3.mjs). vectors.json is frozen and
+// is not regenerated; this script stays as the record of how it was produced.
 import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as A from "../public/js/r1do-auth.js";

@@ -806,12 +806,11 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Public Key (hex)</label>
+                    <label>Public Key (R1DO v3 card)</label>
                     <input
                         type="text"
                         id="recipient-key-input"
-                        placeholder="130 hex characters..."
-                        maxlength="130"
+                        placeholder="r1do-id-v3:... or R1DO-QR-V3:..."
                     />
                 </div>
 
@@ -907,11 +906,14 @@
             // Auth, credential store (R1DOToolsDB) and key derivation live
             // in js/r1do-auth.js — same identity as R1DO Notes.
             let currentUsername = null;
-            let currentPrivateKey = null;
-            let currentPublicKey = null;
+            // v3 identity (P-256 + ML-KEM-768 + ML-DSA-44) and its public card.
+            let currentIdentity = null;
+            let currentCard = null;
             let currentContactsKey = null;
             let contactsCache = [];
-            let recipientPublicKey = null;
+            // Current peer: a v3 contact or parsePublicIdentity() result.
+            let recipient = null;
+            let warnedV2 = false;
             let wakuNode = null;
             let wakuSubscription = null;
             let wakuEncoder = null;
@@ -963,32 +965,33 @@
             const listCredentials = R1DO.listCredentials;
             const getCredential = R1DO.getCredential;
 
-            // ==================== CRYPTO (ECIES v2, signed) ====================
-            // Messages are encrypted to the recipient AND signed by the
-            // sender's identity key. Legacy unsigned envelopes (v "1") from
-            // pre-v2 clients remain decryptable.
+            // ==================== CRYPTO (ECIES v3, hybrid PQ) ====================
+            // Messages are encrypted to the recipient with P-256 ECDH +
+            // ML-KEM-768 and signed with ECDSA P-256 + ML-DSA-44 (module
+            // ECIES v3). v2 envelopes are rejected with a clear message.
+            // A v3 envelope is ~7 KB of JSON: far below the Waku SDK cap
+            // (1 MiB) and the relay default (150 KiB).
 
-            async function encryptForRecipient(message, recipientPubKeyHex) {
-                return R1DO.eciesEncrypt({
+            async function encryptForRecipient(message, to) {
+                return R1DO.eciesEncryptV3({
                     message,
-                    recipientPublicKeyHex: recipientPubKeyHex,
-                    senderPrivateKey: currentPrivateKey,
-                    senderPublicKeyHex: publicKeyToHex(currentPublicKey),
+                    recipient: to,
+                    sender: currentIdentity,
                 });
             }
 
-            // Returns { text, senderPublicKeyHex, verified }.
-            async function decryptFromSender(encryptedPackage, myPrivateKey) {
+            // Returns { text, senderPublicKeyHex, senderMldsaHash, verified }.
+            async function decryptFromSender(encryptedPackage, myIdentity) {
                 return R1DO.decryptAnyEnvelope({
                     envelope: encryptedPackage,
-                    myPrivateKey,
+                    myIdentity,
                 });
             }
 
-            function publicKeyToHex(pubKey) {
-                return Array.from(pubKey)
-                    .map((b) => b.toString(16).padStart(2, "0"))
-                    .join("");
+            function myFingerprint() {
+                return R1DO.shortFingerprint(
+                    R1DO.cardFingerprint(R1DO.encodeCardBytes(currentIdentity)),
+                );
             }
 
             // ==================== UI HELPERS ====================
@@ -1023,8 +1026,14 @@
 
                 contacts.forEach((contact) => {
                     const option = document.createElement("option");
-                    option.value = contact.publicKey;
-                    option.textContent = contact.name;
+                    option.value = contact.id;
+                    if (R1DO.isV3Contact(contact)) {
+                        option.textContent = contact.name;
+                    } else {
+                        // Legacy (v2) contact: listed but not selectable.
+                        option.textContent = `${contact.name} (old key, re-add)`;
+                        option.disabled = true;
+                    }
                     recipientSelect.appendChild(option);
                 });
             }
@@ -1093,11 +1102,11 @@
                     });
                     const trustBadge =
                         trust === "trusted"
-                            ? '<span title="Signed by a known contact" style="color:#10b981;font-size:11px;">✓</span>'
+                            ? '<span title="Signed by a known contact (ECDSA + ML-DSA)" style="color:#10b981;font-size:11px;">✓</span>'
                             : trust === "unknown"
-                              ? '<span title="Valid signature — sender key not in your contacts" style="color:#f59e0b;font-size:11px;">✓?</span>'
+                              ? '<span title="Valid signatures (ECDSA + ML-DSA), sender keys not in your contacts" style="color:#f59e0b;font-size:11px;">✓?</span>'
                               : trust === "invalid"
-                                ? '<span title="INVALID sender signature — possible impersonation" style="color:#ef4444;font-size:11px;">⚠ unsigned/forged</span>'
+                                ? '<span title="INVALID sender signature: possible impersonation" style="color:#ef4444;font-size:11px;">⚠ unsigned/forged</span>'
                                 : "";
                     div.innerHTML = `
                     <div class="msg-meta">
@@ -1166,44 +1175,34 @@
                                     // Try to decrypt
                                     if (
                                         msgData.encrypted &&
-                                        currentPrivateKey
+                                        currentIdentity
                                     ) {
                                         try {
                                             const result =
                                                 await decryptFromSender(
                                                     msgData.encrypted,
-                                                    currentPrivateKey,
+                                                    currentIdentity,
                                                 );
 
-                                            // Sender authentication:
-                                            // signature valid AND key known
+                                            // Sender authentication: BOTH
+                                            // signatures valid AND P-256 key
+                                            // + ML-DSA key hash known
                                             // (contact or current peer).
-                                            let trust = null;
                                             let senderName = msgData.nick;
-                                            if (result.verified === false) {
-                                                trust = "invalid";
-                                            } else if (
-                                                result.verified === true
-                                            ) {
-                                                const spk =
-                                                    result.senderPublicKeyHex.toLowerCase();
-                                                const known =
-                                                    getContacts().find(
-                                                        (c) =>
-                                                            c.publicKey.toLowerCase() ===
-                                                            spk,
-                                                    );
-                                                const isPeer =
-                                                    recipientPublicKey &&
-                                                    recipientPublicKey.toLowerCase() ===
-                                                        spk;
-                                                if (known)
-                                                    senderName = known.name;
-                                                trust =
-                                                    known || isPeer
-                                                        ? "trusted"
-                                                        : "unknown";
-                                            }
+                                            let { trust, contact: known } =
+                                                R1DO.matchSender(
+                                                    result,
+                                                    getContacts(),
+                                                );
+                                            if (known) senderName = known.name;
+                                            if (
+                                                trust === "unknown" &&
+                                                recipient &&
+                                                R1DO.matchSender(result, [
+                                                    recipient,
+                                                ]).trust === "trusted"
+                                            )
+                                                trust = "trusted";
 
                                             addMessage({
                                                 nick: senderName,
@@ -1213,6 +1212,20 @@
                                                 trust,
                                             });
                                         } catch (decryptErr) {
+                                            if (
+                                                decryptErr.code ===
+                                                    "R1DO_ENVELOPE_V2" &&
+                                                !warnedV2
+                                            ) {
+                                                // Old client in the room: say
+                                                // it once (it may not be for us).
+                                                warnedV2 = true;
+                                                addMessage({
+                                                    system: true,
+                                                    text: `⚠ A message in the ${R1DO.V2_ENVELOPE_ERROR}`,
+                                                });
+                                                return;
+                                            }
                                             // Can't decrypt - message wasn't for us, ignore silently
                                             console.log(
                                                 "Could not decrypt message (not for us)",
@@ -1326,8 +1339,7 @@
 
             async function sendMessage() {
                 const text = msgInput.value.trim();
-                if (!text || !connected || !wakuEncoder || !recipientPublicKey)
-                    return;
+                if (!text || !connected || !wakuEncoder || !recipient) return;
 
                 sendBtn.disabled = true;
                 msgInput.value = "";
@@ -1336,7 +1348,7 @@
                     // Encrypt for recipient
                     const encrypted = await encryptForRecipient(
                         text,
-                        recipientPublicKey,
+                        recipient,
                     );
 
                     const payload = new TextEncoder().encode(
@@ -1402,10 +1414,10 @@
                         username,
                     });
 
-                    // Same identity as R1DO Notes (shared HKDF info label).
-                    const identity = await R1DO.deriveP256Identity(prfOutput);
-                    currentPrivateKey = identity.privateKey;
-                    currentPublicKey = identity.publicKey;
+                    // Same identity as R1DO Notes (shared HKDF info labels):
+                    // v3 = the P-256 key as before + ML-KEM / ML-DSA.
+                    currentIdentity = await R1DO.deriveIdentityV3(prfOutput);
+                    currentCard = R1DO.encodeCard(currentIdentity);
 
                     currentContactsKey = await R1DO.hkdfAesKey(
                         prfOutput,
@@ -1424,10 +1436,11 @@
                     chatSetup.classList.add("active");
                     currentUsernameEl.textContent = username;
 
-                    const pubKeyHex = publicKeyToHex(currentPublicKey);
-                    publicKeyPreview.textContent =
-                        pubKeyHex.slice(0, 12) + "..." + pubKeyHex.slice(-8);
-                    publicKeyPreview.title = "Click to copy: " + pubKeyHex;
+                    publicKeyPreview.textContent = "v3 " + myFingerprint();
+                    publicKeyPreview.title =
+                        "Click to copy your R1DO v3 card (fingerprint " +
+                        myFingerprint() +
+                        ")";
 
                     renderContactsSelect();
                     showToast("Logged in successfully!", "success");
@@ -1443,13 +1456,13 @@
             logoutBtn.addEventListener("click", async () => {
                 await disconnectWaku();
 
-                R1DO.zeroize(currentPrivateKey);
-                currentPrivateKey = null;
-                currentPublicKey = null;
+                R1DO.zeroizeIdentity(currentIdentity);
+                currentIdentity = null;
+                currentCard = null;
                 currentContactsKey = null;
                 contactsCache = [];
                 currentUsername = null;
-                recipientPublicKey = null;
+                recipient = null;
                 currentRoom = null;
 
                 authSection.style.display = "block";
@@ -1470,10 +1483,9 @@
 
             // Copy public key
             publicKeyPreview.addEventListener("click", async () => {
-                if (!currentPublicKey) return;
-                const pubKeyHex = publicKeyToHex(currentPublicKey);
-                await navigator.clipboard.writeText(pubKeyHex);
-                showToast("Public key copied to clipboard!", "success");
+                if (!currentCard) return;
+                await navigator.clipboard.writeText(currentCard);
+                showToast("Public key (v3 card) copied to clipboard!", "success");
             });
 
             // ==================== CHAT ====================
@@ -1491,38 +1503,42 @@
 
             startChatBtn.addEventListener("click", async () => {
                 const room = roomInput.value.trim();
-                let recipientKey = "";
-
-                if (recipientSelect.value) {
-                    recipientKey = recipientSelect.value;
-                } else if (recipientKeyInput.value.trim()) {
-                    recipientKey = recipientKeyInput.value
-                        .trim()
-                        .replace(/\s/g, "");
-                }
+                let to = null;
+                let toLabel = "";
 
                 if (!room) {
                     showToast("Please enter a room name", "error");
                     return;
                 }
 
-                if (!recipientKey) {
+                if (recipientSelect.value) {
+                    const contact = getContacts().find(
+                        (c) => c.id === recipientSelect.value,
+                    );
+                    if (contact && R1DO.isV3Contact(contact)) {
+                        to = contact;
+                        toLabel = contact.name;
+                    }
+                } else if (recipientKeyInput.value.trim()) {
+                    try {
+                        to = R1DO.parsePublicIdentity(recipientKeyInput.value);
+                    } catch (e) {
+                        showToast(e.message, "error");
+                        return;
+                    }
+                    toLabel = "PQ " + R1DO.shortFingerprint(to.mldsaHash);
+                }
+
+                if (!to) {
                     showToast(
-                        "Please select a contact or enter a public key",
+                        "Please select a contact or paste an R1DO v3 card",
                         "error",
                     );
                     return;
                 }
 
-                if (!/^[0-9a-fA-F]{130}$/.test(recipientKey)) {
-                    showToast(
-                        "Invalid public key (must be 130 hex characters)",
-                        "error",
-                    );
-                    return;
-                }
-
-                recipientPublicKey = recipientKey.toLowerCase();
+                recipient = to;
+                warnedV2 = false;
                 currentRoom = room;
 
                 const contentTopic = `/r1do-chat/1/${room}/proto`;
@@ -1535,7 +1551,7 @@
                 inputRow.classList.add("active");
 
                 chatRoomName.textContent = `#${room}`;
-                chatRecipientShort.textContent = `Recipient: ${recipientKey.slice(0, 8)}...${recipientKey.slice(-6)}`;
+                chatRecipientShort.textContent = `Recipient: ${toLabel}`;
 
                 startChatBtn.disabled = true;
                 startChatBtn.textContent = "Connecting...";
@@ -1558,7 +1574,7 @@
             leaveChatBtn.addEventListener("click", async () => {
                 await disconnectWaku();
 
-                recipientPublicKey = null;
+                recipient = null;
                 currentRoom = null;
 
                 chatHeader.classList.remove("active");
