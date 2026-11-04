@@ -376,3 +376,17 @@ test("ECIES v3: v2 and unknown envelope versions are rejected with a clear error
   await assert.rejects(A.decryptAnyEnvelope({ envelope: { ...V3.ecies.envelope, v: 4 }, myIdentity: b }), /Unsupported/);
   await assert.rejects(A.decryptAnyEnvelope({ envelope: null, myIdentity: b }), /Not an R1DO envelope/);
 });
+
+test("identityFingerprint: one value per person, whether it comes from the identity, the card or the QR", async () => {
+  const a = await A.deriveIdentityV3(prfA());
+  const b = await A.deriveIdentityV3(prfB());
+  const fromIdentity = A.identityFingerprint(a);
+  const fromCard = A.identityFingerprint(A.parsePublicIdentity(A.encodeCard(a)));
+  const fromQr = A.identityFingerprint(A.parsePublicIdentity(A.encodeQrText(a)));
+  assert.match(fromIdentity, /^[0-9a-f]{64}$/);
+  assert.equal(fromCard, fromIdentity, "card-added contact shows the owner's fingerprint");
+  assert.equal(fromQr, fromIdentity, "QR-added contact shows the owner's fingerprint");
+  assert.notEqual(A.identityFingerprint(b), fromIdentity, "different people, different fingerprints");
+  assert.notEqual(fromIdentity, A.cardFingerprint(A.encodeCardBytes(a)), "display fingerprint is its own, tagged value");
+  assert.throws(() => A.identityFingerprint({ p256: "00", mlkem: "", mldsaHash: "" }));
+});

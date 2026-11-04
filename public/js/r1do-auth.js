@@ -627,6 +627,32 @@ export function cardFingerprint(card) {
     return bytesToHex(sha256(bytes));
 }
 
+const FP_TAG = utf8ToBytes("R1DOFP3");
+
+/**
+ * The fingerprint the UI shows for a person, the same everywhere (own key, contact list, chat):
+ * SHA-256 (hex) of "R1DOFP3" || P-256 pub || ML-KEM ek || SHA-256(ML-DSA pk). Unlike
+ * cardFingerprint it can also be computed for a contact added from a QR, which only knows the
+ * ML-DSA key hash, so a card and a QR of the same identity give the same value. Display only:
+ * it is not part of any envelope or signature.
+ * Accepts an identity ({ publicKey, mlkemPublicKey, mldsaPublicKey } bytes) or a contact /
+ * parsed card or QR ({ p256 hex, mlkem base64url, mldsaHash hex }).
+ */
+export function identityFingerprint(x) {
+    let p, ek, mldsaHash;
+    if (x?.mlkemPublicKey != null) {
+        const pub = _publics(x);
+        p = pub.p256;
+        ek = pub.mlkem;
+        mldsaHash = sha256(pub.mldsa);
+    } else {
+        p = _hexExact(x?.p256, LEN.P256_PUB, "p256");
+        ek = b64urlDecode(x?.mlkem, LEN.MLKEM_EK, "mlkem");
+        mldsaHash = _hexExact(x?.mldsaHash, 32, "mldsaHash");
+    }
+    return bytesToHex(sha256(concatBytes(FP_TAG, p, ek, mldsaHash)));
+}
+
 /** Short, groupable form of a fingerprint for display. */
 export function shortFingerprint(hex) {
     return hex.slice(0, 16).match(/.{4}/g).join(" ");

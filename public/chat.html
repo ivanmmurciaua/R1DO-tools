@@ -990,7 +990,7 @@
 
             function myFingerprint() {
                 return R1DO.shortFingerprint(
-                    R1DO.cardFingerprint(R1DO.encodeCardBytes(currentIdentity)),
+                    R1DO.identityFingerprint(currentIdentity),
                 );
             }
 
@@ -1526,7 +1526,7 @@
                         showToast(e.message, "error");
                         return;
                     }
-                    toLabel = "PQ " + R1DO.shortFingerprint(to.mldsaHash);
+                    toLabel = "PQ " + R1DO.shortFingerprint(R1DO.identityFingerprint(to));
                 }
 
                 if (!to) {
