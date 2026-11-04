@@ -51,43 +51,27 @@ test("at rest: each key only opens its own data (labels stay separated)", async 
   await assert.rejects(A.aesDecrypt(otherUser, V.sealed.NOTES_DEK.blob));
 });
 
-test("ECIES v2: an old envelope still decrypts and its sender signature verifies", async () => {
-  const { privateKey } = await A.deriveP256Identity(prfB());
-  const r = await A.decryptAnyEnvelope({ envelope: V.ecies.envelope, myPrivateKey: privateKey });
-  assert.equal(r.text, V.ecies.message);
-  assert.equal(r.verified, true);
-  assert.equal(r.senderPublicKeyHex, V.identityA.publicKeyHex);
+// ECIES v2 envelopes: DELIBERATELY RETIRED (versioned format change to crypto v3, see
+// test/r1do-auth.v3.test.mjs). Messages are not stored, so nothing at rest depends on v2
+// envelopes; the frozen v2 envelope in vectors.json is kept unchanged and must now be REJECTED
+// with a clear error instead of being decrypted. Everything above this line stays as it was.
+const V2_REJECTED = { message: /old envelope format \(v2\): ask the sender to update R1DO/ };
+
+test("ECIES v2 (retired): the frozen v2 envelope is rejected with a clear error", async () => {
+  const myIdentity = await A.deriveIdentityV3(prfB());
+  await assert.rejects(A.decryptAnyEnvelope({ envelope: V.ecies.envelope, myIdentity }), V2_REJECTED);
 });
 
-test("ECIES v2: tampering is detected", async () => {
-  const { privateKey: bPriv } = await A.deriveP256Identity(prfB());
+test("ECIES v2 (retired): tampered v2 envelopes are rejected the same way, before any crypto", async () => {
+  const myIdentity = await A.deriveIdentityV3(prfB());
   const env = V.ecies.envelope;
-
   const badCt = { ...env, ct: env.ct.map((b, i) => (i === 0 ? b ^ 1 : b)) };
-  await assert.rejects(A.decryptAnyEnvelope({ envelope: badCt, myPrivateKey: bPriv }), "ciphertext tamper");
-
-  const sig = hexToBytes(env.sig);
-  sig[0] ^= 1;
-  const badSig = await A.decryptAnyEnvelope({ envelope: { ...env, sig: bytesToHex(sig) }, myPrivateKey: bPriv });
-  assert.equal(badSig.verified, false, "signature tamper");
-
-  const forged = await A.decryptAnyEnvelope({ envelope: { ...env, spk: V.identityB.publicKeyHex }, myPrivateKey: bPriv });
-  assert.equal(forged.verified, false, "claimed sender swapped");
-
-  const { privateKey: aPriv } = await A.deriveP256Identity(prfA());
-  await assert.rejects(A.decryptAnyEnvelope({ envelope: env, myPrivateKey: aPriv }), "wrong recipient");
+  await assert.rejects(A.decryptAnyEnvelope({ envelope: badCt, myIdentity }), V2_REJECTED);
+  await assert.rejects(A.decryptAnyEnvelope({ envelope: { ...env, spk: V.identityB.publicKeyHex }, myIdentity }), V2_REJECTED);
+  await assert.rejects(A.decryptAnyEnvelope({ envelope: { ...env, v: "2" }, myIdentity }), V2_REJECTED);
 });
 
-test("ECIES v2: a fresh round trip works", async () => {
-  const a = await A.deriveP256Identity(prfA());
-  const b = await A.deriveP256Identity(prfB());
-  const env = await A.eciesEncrypt({
-    message: "round trip",
-    recipientPublicKeyHex: b.publicKeyHex,
-    senderPrivateKey: a.privateKey,
-    senderPublicKeyHex: a.publicKeyHex,
-  });
-  const r = await A.decryptAnyEnvelope({ envelope: env, myPrivateKey: b.privateKey });
-  assert.equal(r.text, "round trip");
-  assert.equal(r.verified, true);
+test("ECIES v2 (retired): v2 envelopes can no longer be produced", () => {
+  assert.equal(A.eciesEncrypt, undefined);
+  assert.equal(A.eciesDecrypt, undefined);
 });

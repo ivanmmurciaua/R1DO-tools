@@ -11,6 +11,8 @@ import { createHash } from "node:crypto";
 const VENDORED = {
   "waku-sdk-0.0.31.js": "4f2026f5196af90d5fb414adf02092c3f5173befbf376d46f23f16e0c026f62a",
   "dompurify-3.4.17.js": "60c5d5ccbb466de3de3ba863461a92bf134f8c156cef7992da43e0f659bc5cbd",
+  // deterministic bundle from tools/vendor-pq.mjs (re-run it: the hash must come out the same)
+  "noble-post-quantum-0.7.1.js": "d7dd12ae18febce71fa9d02b040c756f9903777957a7b5167da40c4f9a45eb85",
 };
 
 const sha256 = (name) =>
@@ -32,4 +34,9 @@ test("notes.html sanitizes the preview with the vendored DOMPurify", () => {
   const notes = readFileSync(new URL("../public/notes.html", import.meta.url), "utf8");
   assert.ok(notes.includes('import DOMPurify from "./js/dompurify-3.4.17.js";'), "notes.html does not import the vendored DOMPurify");
   assert.ok(!/markdownPreview\.innerHTML\s*=\s*(html|marked)/.test(notes), "the preview is assigned raw marked output");
+});
+
+test("r1do-auth.js takes ML-KEM / ML-DSA from the vendored post-quantum bundle", () => {
+  const auth = readFileSync(new URL("../public/js/r1do-auth.js", import.meta.url), "utf8");
+  assert.ok(auth.includes('from "./noble-post-quantum-0.7.1.js";'), "r1do-auth.js does not import the vendored bundle");
 });
