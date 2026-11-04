@@ -2774,7 +2774,7 @@
                                 "",
                         );
                         const shortKey = isV3
-                            ? "PQ " + R1DO.shortFingerprint(key)
+                            ? "PQ " + R1DO.shortFingerprint(R1DO.identityFingerprint(contact))
                             : key.substring(0, 10) +
                               "..." +
                               key.substring(key.length - 10);
@@ -3784,7 +3784,7 @@
             // Short fingerprint of my card: compare it out of band.
             function myFingerprint() {
                 return R1DO.shortFingerprint(
-                    R1DO.cardFingerprint(R1DO.encodeCardBytes(currentIdentity)),
+                    R1DO.identityFingerprint(currentIdentity),
                 );
             }
 
